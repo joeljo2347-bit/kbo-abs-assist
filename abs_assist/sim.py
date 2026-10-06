@@ -9,7 +9,8 @@ The model is simple on purpose: it exists to produce realistic-looking data, not
 from __future__ import annotations
 
 import math
-from typing import Dict, Iterator, List, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, List, Tuple
 
 import numpy as np
 
@@ -19,6 +20,21 @@ from abs_assist.zone import ZONE_WIDTH_CM, Pitch, ZoneRules, call
 HALF_PLATE_DEPTH_CM = 21.59  # from the middle of the plate to its back edge
 WHIFF = {"fastball": 0.17, "sinker": 0.13, "slider": 0.32, "changeup": 0.29, "splitter": 0.35, "curveball": 0.30}
 RULES = ZoneRules(2025)
+
+
+@dataclass
+class Calibration:
+    """The simulation's behavioral knobs. The defaults were fitted to the KBO's official 2026 league
+    totals by evals/calibrate.py (strikeout, walk and home-run rates, batting average, pitches per PA)."""
+    whiff: float = 0.58       # scales every whiff chance
+    foul: float = 0.55        # chance a contacted swing is a foul
+    hit: float = 0.28         # base chance a ball in play is a hit
+    zone_swing: float = 0.62  # base swing rate at pitches in the zone
+    chase: float = 0.30       # base swing rate at pitches outside it
+    power: float = 0.80       # scales the chance a hit is a home run
+
+
+CAL = Calibration()
 
 
 def _intent(balls: int, strikes: int, rng: np.random.Generator) -> str:
@@ -47,37 +63,56 @@ def _target(intent: str, kind: str, height: float, rng: np.random.Generator) -> 
     return side * rng.uniform(27, 38), bottom + span * rng.uniform(0.2, 0.9)
 
 
-def choose_type(pitcher: Pitcher, balls: int, strikes: int, prev: str, rng: np.random.Generator) -> str:
-    """His mix, shifted by the count (fastballs when behind, more breaking balls when ahead)
-    and by his habit of what follows the previous pitch."""
+PLATOON_MIX = {"slider": (1.35, 0.85), "curveball": (1.2, 0.9), "changeup": (0.7, 1.4), "splitter": (0.75, 1.35)}
+
+
+def type_odds(pitcher: Pitcher, balls: int, strikes: int, prev: str, same_side: bool = True) -> Dict[str, float]:
+    """The chance of each pitch type: his mix, shifted by the count (fastballs when behind, more
+    breaking balls when ahead), by his habit of what follows the previous pitch, and by the batter's
+    side (more sliders to same-side hitters, more changeups and splitters to opposite-side ones)."""
     lead = strikes - balls
-    weights = []
+    weights = {}
     for kind, share in pitcher.arsenal.items():
         w = share * (1 + 0.6 * max(-lead, 0) if kind == "fastball" else 1 + pitcher.ahead_breaking * max(lead, 0))
-        weights.append(w * pitcher.follow.get(prev, {}).get(kind, 1.0))
-    p = np.array(weights) / sum(weights)
-    return str(rng.choice(list(pitcher.arsenal), p=p))
+        platoon = PLATOON_MIX.get(kind, (1.0, 1.0))[0 if same_side else 1]
+        weights[kind] = w * platoon * pitcher.follow.get(prev, {}).get(kind, 1.0)
+    total = sum(weights.values())
+    return {k: w / total for k, w in weights.items()}
+
+
+def choose_type(pitcher: Pitcher, balls: int, strikes: int, prev: str, rng: np.random.Generator,
+                same_side: bool = True) -> str:
+    odds = type_odds(pitcher, balls, strikes, prev, same_side)
+    return str(rng.choice(list(odds), p=list(odds.values())))
+
+
+def movement(pitcher: Pitcher, kind: str, rng: np.random.Generator) -> Tuple[float, float]:
+    """Horizontal break (+ = arm side) and induced vertical break in cm: the pitch type's shape,
+    his own version of it, and pitch-to-pitch variation."""
+    base, own = PITCH_TYPES[kind], pitcher.shape.get(kind, (0.0, 0.0))
+    return base["hb"] + own[0] + rng.normal(0, 3), base["ivb"] + own[1] + rng.normal(0, 3)
 
 
 def throw(pitcher: Pitcher, batter: Batter, balls: int, strikes: int, rng: np.random.Generator,
-          prev: str = "", pitch_no: int = 1) -> Dict:
-    """One pitch's flight: type, speed, and where it crosses the middle and back of the plate.
-    Past his stamina, a pitcher loses speed and command."""
-    kind = choose_type(pitcher, balls, strikes, prev, rng)
+          prev: str = "", pitch_no: int = 1, same_side: bool = True) -> Dict:
+    """One pitch's flight: type, speed, movement, and where it crosses the middle and back of the
+    plate. Past his stamina, a pitcher loses speed and command."""
+    kind = choose_type(pitcher, balls, strikes, prev, rng, same_side)
+    hb, ivb = movement(pitcher, kind, rng)
     tired = max(0.0, (pitch_no - pitcher.stamina) / 30)
     tx, tz = _target(_intent(balls, strikes, rng), kind, batter.height_cm, rng)
     spread = pitcher.command_cm + 4 * tired
     x, z_mid = tx + rng.normal(0, spread), tz + rng.normal(0, spread)
     vaa = PITCH_TYPES[kind]["vaa"] + rng.normal(0, 0.6)
     z_end = z_mid - HALF_PLATE_DEPTH_CM * math.tan(math.radians(vaa))
-    kmh = PITCH_TYPES[kind]["kmh"] - 2.2 * tired + rng.normal(0, 2.0)
-    intent = "tired" if tired else ""
-    return {"pitch_type": kind, "intent": intent, "kmh": round(kmh, 1), "vaa_deg": round(vaa, 2),
-            "x_cm": round(x, 2), "z_mid_cm": round(z_mid, 2), "z_end_cm": round(z_end, 2), "pitch_no": pitch_no}
+    kmh = PITCH_TYPES[kind]["kmh"] + pitcher.velo - 2.2 * tired + rng.normal(0, 2.0)
+    return {"pitch_type": kind, "intent": "tired" if tired else "", "kmh": round(kmh, 1), "vaa_deg": round(vaa, 2),
+            "hb_cm": round(hb, 1), "ivb_cm": round(ivb, 1), "x_cm": round(x, 2), "z_mid_cm": round(z_mid, 2),
+            "z_end_cm": round(z_end, 2), "pitch_no": pitch_no}
 
 
 def _swing_prob(in_zone: bool, batter: Batter, balls: int, strikes: int) -> float:
-    base = 0.62 if in_zone else 0.30 * (1.25 - batter.discipline)
+    base = CAL.zone_swing if in_zone else CAL.chase * (1.25 - batter.discipline)
     if strikes == 2:
         base += 0.15
     if balls == 3 and strikes < 2:
@@ -110,19 +145,21 @@ def _whiff_factor(kind: str, centre: float, height: float) -> float:
     return 0.85 if centre >= 0 else 1.2
 
 
-def _contact_result(kind: str, centre: float, height: float, batter: Batter, rng: np.random.Generator) -> str:
+def _contact_result(kind: str, centre: float, height: float, batter: Batter, rng: np.random.Generator,
+                    same_side: bool = True) -> str:
     """whiff, foul, out, single, double or home_run. The heart of the plate and hanging breaking
     balls are hit hardest; chase pitches are hit weakly."""
-    if rng.random() < min(WHIFF[kind] * (1.45 - batter.contact) * _whiff_factor(kind, centre, height), 0.8):
+    platoon = 1.12 if same_side else 0.92  # same-side matchups favour the pitcher
+    if rng.random() < min(platoon * CAL.whiff * WHIFF[kind] * (1.45 - batter.contact) * _whiff_factor(kind, centre, height), 0.8):
         return "whiff"
-    if rng.random() < 0.55:
+    if rng.random() < CAL.foul:
         return "foul"
     hangs = kind in BREAKING and height > 0.6 and centre >= 0
     damage = max(centre, 0) + (0.5 if hangs else 0)
-    p_hit = float(np.clip(0.27 + 0.12 * centre + 0.06 * hangs, 0.12, 0.42)) * (0.8 + 0.4 * batter.contact)
+    p_hit = float(np.clip(CAL.hit + 0.12 * centre + 0.06 * hangs, 0.12, 0.50)) * (0.8 + 0.4 * batter.contact) / platoon ** 0.5
     if rng.random() >= p_hit:
         return "out"
-    hr = (0.04 + 0.12 * batter.power) * (1 + 1.2 * damage)
+    hr = CAL.power * (0.04 + 0.12 * batter.power) * (1 + 1.2 * damage)
     roll = rng.random()
     return "home_run" if roll < hr else "double" if roll < hr + 0.16 + 0.15 * batter.power else "single"
 
@@ -136,7 +173,8 @@ def pitch_outcome(p: Dict, batter: Batter, balls: int, strikes: int, rng: np.ran
     else:
         bottom, top = RULES.bounds(batter.height_cm)
         height = (p["z_mid_cm"] - bottom) / (top - bottom)
-        result = _contact_result(p["pitch_type"], centrality(p["x_cm"], p["z_mid_cm"], batter.height_cm), height, batter, rng)
+        centre = centrality(p["x_cm"], p["z_mid_cm"], batter.height_cm)
+        result = _contact_result(p["pitch_type"], centre, height, batter, rng, p.get("same_side", True))
     return {**p, "swing": swing, "result": result, "abs_strike": abs_call.strike,
             "abs_margin_cm": abs_call.margin_cm, "abs_rule": abs_call.deciding_rule}
 
@@ -157,11 +195,16 @@ def _advance(result: str, balls: int, strikes: int) -> Tuple[int, int, str]:
 
 def plate_appearance(pitcher: Pitcher, batter: Batter, rng: np.random.Generator,
                      state: Dict[str, Dict]) -> Tuple[List[Dict], str]:
-    """`state` carries each pitcher's pitch count and previous pitch through the game."""
+    """`state` carries each pitcher's pitch count and previous pitch through the game. A switch
+    hitter bats from the side opposite the pitcher's hand."""
+    side = batter.bats if batter.bats != "S" else ("L" if pitcher.throws == "R" else "R")
+    same_side = side == pitcher.throws
+    hands: Dict[str, Any] = {"pitcher_throws": pitcher.throws, "batter_side": side, "same_side": same_side}
     rows, balls, strikes, ended = [], 0, 0, ""
     while not ended:
         n = state["count"][pitcher.name] = state["count"].get(pitcher.name, 0) + 1
-        thrown = throw(pitcher, batter, balls, strikes, rng, state["prev"].get(pitcher.name, ""), n)
+        thrown = {**throw(pitcher, batter, balls, strikes, rng, state["prev"].get(pitcher.name, ""), n,
+                          same_side), **hands}
         state["prev"][pitcher.name] = thrown["pitch_type"]
         p = pitch_outcome(thrown, batter, balls, strikes, rng)
         rows.append({**p, "balls": balls, "strikes": strikes})

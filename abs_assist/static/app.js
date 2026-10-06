@@ -73,9 +73,9 @@ function bars(dist) {
 }
 
 function recTable(rec) {
-  const row = (r) => `<tr><td>${esc(r.pitch)}</td><td class="num">${r.batter_value_after.toFixed(3)}</td>
+  const row = (r) => `<tr><td>${esc(r.pitch)}</td><td class="num">${r.batter_value_after_runs.toFixed(3)}</td>
     <td class="num">${pct(r.whiff_chance_if_swung_at)}</td><td class="num">${pct(r.called_strike_chance_if_taken)}</td></tr>`;
-  return `<p class="muted">Batter's value now: ${rec.batter_value_now.toFixed(3)} runs. Lower after the pitch is better for us.</p>
+  return `<p class="muted">Batter's value now: ${rec.batter_value_now_runs.toFixed(3)} runs. Lower after the pitch is better for us.</p>
     <table><tr><th>Best</th><th class="num">Batter value after</th><th class="num">Whiff if swung</th><th class="num">Strike if taken</th></tr>
     ${rec.best.map(row).join("")}<tr><th>Avoid</th><th></th><th></th><th></th></tr>${rec.worst.map(row).join("")}</table>`;
 }
@@ -147,29 +147,88 @@ function setupLive() {
   };
 }
 
-// ---- AI coach ----
+// ---- AI coach: a conversation ----
+let CONVO = null;
+function markdown(text) {
+  return esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+}
+
+// Visual blocks next to an answer: each has one job and reads at a glance.
+const ZROWS = ["above", "high", "middle", "low", "below"];
+const ZCOLS = ["off", "edge", "inside", "middle", "inside", "edge", "off"];
+
+function zoneBlock(b) {
+  const col = b.side === "middle" ? 3 : 4 + ["inside", "edge", "off"].indexOf(b.side), row = ZROWS.indexOf(b.height);
+  const cells = ZROWS.map((_, r) => ZCOLS.map((__, c) => {
+    const hit = r === row && c === col;
+    return `<rect x="${c * 30}" y="${r * 28}" width="30" height="28" fill="${hit ? "#c30452" : "#f2f3f5"}" stroke="#fff" stroke-width="2"/>`;
+  }).join("")).join("");
+  return `<div class="vz"><svg viewBox="-2 -2 214 144" width="214" height="144" role="img" aria-label="Throw ${esc(b.label)} in the highlighted spot">
+    ${cells}<rect x="30" y="28" width="150" height="84" fill="none" stroke="#15161a" stroke-width="2.5"/>
+    <text x="${col * 30 + 15}" y="${row * 28 + 18}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">here</text></svg>
+    <div class="vz-cap">Catcher's view. The black box is the ABS zone; the red square is where to throw the ${esc(b.label)} (or the same spot on the other side).</div></div>`;
+}
+
+function tilesBlock(b) {
+  return `<div class="vtiles">${b.items.map((i) => `<div class="vtile"><div class="vv">${esc(i.value)}</div>
+    <div class="vl">${esc(i.label)}</div>${i.note ? `<div class="vn">${esc(i.note)}</div>` : ""}</div>`).join("")}</div>`;
+}
+
+function barsBlock(b) {
+  const max = Math.max(...b.items.map((i) => i.value)) || 1;
+  return `<div class="vbars"><div class="vt">${esc(b.title)}</div>${b.items.map((i) => `<div class="vrow" title="${esc(i.label)}: ${esc(i.display)}">
+    <span class="vlab">${esc(i.label)}</span><span class="vtrack"><span class="vfill${i.highlight ? " on" : ""}" style="width:${(i.value / max) * 100}%"></span></span>
+    <span class="vval">${esc(i.display)}</span></div>`).join("")}</div>`;
+}
+
+function tableBlock(b) {
+  const bold = new Set(b.bold.map(([c, r]) => `${r}:${c}`));
+  return `<div class="vt">${esc(b.title)}</div><table class="vtab"><tr>${b.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>
+    ${b.rows.map((row, r) => `<tr>${row.map((v, c) => `<td>${bold.has(`${r}:${c}`) ? `<b>${esc(v)}</b>` : esc(v)}</td>`).join("")}</tr>`).join("")}</table>
+    ${b.bold.length ? '<div class="vn">Bold: the highest in each column.</div>' : ""}`;
+}
+
+function visualHtml(b) {
+  if (b.type === "headline") return `<div class="vhead"><div class="vl">${esc(b.label)}</div><div class="vbig">${esc(b.text)}</div></div>`;
+  if (b.type === "zone") return zoneBlock(b);
+  if (b.type === "tiles") return tilesBlock(b);
+  if (b.type === "bars") return barsBlock(b);
+  if (b.type === "table") return tableBlock(b);
+  return `<div class="vn">${esc(b.text)}</div>`;
+}
+
+function bubble(html, who, meta = "") {
+  const div = document.createElement("div");
+  div.className = `msg ${who}`;
+  div.innerHTML = html + (meta ? `<span class="meta">${esc(meta)}</span>` : "");
+  $("cLog").appendChild(div); $("cLog").scrollTop = $("cLog").scrollHeight;
+  return div;
+}
+
 async function ask() {
   const question = $("cQ").value.trim();
   if (!question) return;
-  $("cStatus").textContent = "Thinking…"; $("cA").textContent = ""; $("cTools").textContent = "";
+  $("cQ").value = ""; $("cAsk").disabled = true;
+  bubble(esc(question), "me");
+  const wait = bubble("Looking it up…", "ai wait"), started = Date.now();
   try {
-    const r = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+    const r = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, conversation_id: CONVO }) });
     const out = await r.json();
     if (!r.ok) throw new Error(out.detail);
-    $("cA").textContent = out.answer;
-    $("cTools").textContent = `Tools used: ${out.tools_used.join(", ") || "none"}${out.corrected ? " · an unsupported number was sent back and fixed" : ""}`;
-  } catch (e) { $("cA").textContent = String(e.message || e); }
-  $("cStatus").textContent = "";
+    CONVO = out.conversation_id; wait.remove();
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    const meta = `${out.tools_used.length ? `From: ${[...new Set(out.tools_used)].join(", ")} · ` : ""}${secs}s`;
+    const card = out.visuals.length ? `<div class="vcard">${out.visuals.map(visualHtml).join("")}</div>` : "";
+    bubble(markdown(out.answer) + card, "ai", meta);
+  } catch (e) { wait.remove(); bubble(esc(String(e.message || e)), "ai"); }
+  $("cAsk").disabled = false; $("cQ").focus();
 }
 
 function setupCoach() {
-  const lg = META.roster["LG Twins"], opp = META.teams.find((t) => t !== "LG Twins");
-  const ideas = [`What should ${lg.pitchers[0]} throw ${META.roster[opp].batters[0]} with a 1-2 count?`,
-    `How many strikes do LG Twins pitchers lose at the back of the plate, and on which pitches?`,
-    `What is ${lg.pitchers[1]} likely to throw when he's behind 2-0?`];
-  $("cChips").innerHTML = ideas.map((q) => `<button>${esc(q)}</button>`).join("");
-  $("cChips").onclick = (e) => { if (e.target.tagName === "BUTTON") { $("cQ").value = e.target.textContent; ask(); } };
-  $("cAsk").onclick = ask;
+  $("cForm").onsubmit = (e) => { e.preventDefault(); ask(); };
+  $("cQ").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } };
+  $("cNew").onclick = () => { CONVO = null; $("cLog").innerHTML = ""; };
 }
 
 // ---- tabs and start ----
@@ -181,6 +240,77 @@ document.querySelector("nav").onclick = (e) => {
 
 (async () => {
   META = await get("/api/meta");
-  $("meta").textContent = `Simulated 2025 season · ${META.games} games · ${META.pitches.toLocaleString()} pitches · 2025 ABS zone`;
-  setupZone(); setupMatchup(); setupLive(); setupCoach();
+  $("meta").textContent = `Simulated season calibrated to KBO 2026 league totals · ${META.games} games · ${META.pitches.toLocaleString()} pitches · 2025 ABS zone rules`;
+  setupScout(); setupZone(); setupMatchup(); setupLive(); setupCoach();
 })();
+
+// ---- Scouting: a pitcher against a team ----
+// Each pitch type keeps one validated color everywhere (color follows the pitch, never its rank).
+const PITCH_COLORS = { fastball: "#2a78d6", slider: "#eb6834", changeup: "#1baf7a", curveball: "#eda100", splitter: "#e87ba4", sinker: "#008300" };
+let SCOUT = null, PICK = null, SIDE = "";
+const num = (id) => Number($(id).value);
+
+function arsenalTable(s) {
+  if (!s.arsenal.length) return "No pitches match these filters.";
+  const head = ["Pitch", "Usage", "Avg km/h", "Max", "H-break", "V-break", "Zone", "Chase", "Whiff", "Called strike", "AVG against", "Pitches"];
+  const row = (a) => `<tr class="pick${PICK === a.pitch ? " sel" : ""}" data-p="${esc(a.pitch)}">
+    <td><span class="swatch" style="background:${PITCH_COLORS[a.pitch]}"></span>${esc(a.pitch)}</td>
+    <td><span class="usage" style="width:${Math.round(a.usage * 90)}px;background:${PITCH_COLORS[a.pitch]}"></span>${pct(a.usage)}</td>
+    <td class="num">${a.avg_kmh}</td><td class="num">${a.max_kmh}</td><td class="num">${a.hb_cm} cm</td><td class="num">${a.ivb_cm} cm</td>
+    <td class="num">${pct(a.zone)}</td><td class="num">${pct(a.chase)}</td><td class="num">${pct(a.whiff)}</td>
+    <td class="num">${pct(a.called_strike)}</td><td class="num">${a.avg_against == null ? "–" : a.avg_against.toFixed(3).replace(/^0/, "")}</td>
+    <td class="num">${a.pitches.toLocaleString()}</td></tr>`;
+  return `<table class="ars"><tr>${head.map((h, i) => `<th${i > 1 ? ' class="num"' : ""}>${h}</th>`).join("")}</tr>${s.arsenal.map(row).join("")}</table>`;
+}
+
+function dotColor(type) { return !PICK || PICK === type ? PITCH_COLORS[type] : "#d3d6dc"; }
+
+function movementChart(s) {
+  const X = (cm) => 230 + cm * 3.4, Y = (cm) => 200 - cm * 3.4;
+  const grid = [-50, -25, 25, 50].map((v) => `<line x1="${X(v)}" x2="${X(v)}" y1="10" y2="390" stroke="#eef0f3"/><line x1="10" x2="450" y1="${Y(v)}" y2="${Y(v)}" stroke="#eef0f3"/>`).join("");
+  const axes = `<line x1="${X(0)}" x2="${X(0)}" y1="10" y2="390" stroke="#c9ccd4"/><line x1="10" x2="450" y1="${Y(0)}" y2="${Y(0)}" stroke="#c9ccd4"/>
+    <text x="446" y="${Y(0) - 6}" font-size="11" text-anchor="end" fill="#666c78">arm side →</text><text x="14" y="${Y(0) - 6}" font-size="11" fill="#666c78">← glove side</text>
+    <text x="${X(0) + 6}" y="22" font-size="11" fill="#666c78">↑ rises more</text><text x="${X(0) + 6}" y="386" font-size="11" fill="#666c78">↓ drops more</text>`;
+  const order = [...s.points].sort((a, b) => (a.type === PICK) - (b.type === PICK));
+  const dots = order.map((p) => `<circle cx="${X(p.hb)}" cy="${Y(p.ivb)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${p.type}: ${p.kmh} km/h, H ${p.hb} cm, V ${p.ivb} cm</title></circle>`).join("");
+  return grid + axes + dots;
+}
+
+function locationChart(s) {
+  const order = [...s.points].sort((a, b) => (a.type === PICK) - (b.type === PICK));
+  return zoneFrame() + order.map((p) => `<circle cx="${sx(p.x)}" cy="${sy(p.h)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${p.type}, ${p.kmh} km/h: ${p.strike ? "in the zone" : "outside the zone"}, ${p.result.replace("_", " ")}</title></circle>`).join("");
+}
+
+function drawScout() {
+  const s = SCOUT;
+  $("sHand").textContent = s.throws ? `Throws ${s.throws === "R" ? "right" : "left"}-handed` : "";
+  $("sCount").textContent = `${s.pitches.toLocaleString()} pitches match`;
+  $("sTable").innerHTML = arsenalTable(s);
+  $("sMove").innerHTML = movementChart(s);
+  $("sLoc").innerHTML = locationChart(s);
+  $("sLegend").innerHTML = s.arsenal.map((a) => `<span><span class="swatch" style="background:${PITCH_COLORS[a.pitch]}"></span>${esc(a.pitch)} ${pct(a.usage)}</span>`).join("");
+}
+
+async function loadScout() {
+  SCOUT = await get(`/api/scout?${qs({ pitcher: $("sPitcher").value, opponent: $("sOpp").value, side: SIDE,
+    kmh_min: num("kmhMin"), kmh_max: num("kmhMax"), hb_min: num("hbMin"), hb_max: num("hbMax"), ivb_min: num("ivbMin"), ivb_max: num("ivbMax") })}`);
+  if (PICK && !SCOUT.arsenal.some((a) => a.pitch === PICK)) PICK = null;
+  drawScout();
+}
+
+function setupScout() {
+  fill($("sTeam"), META.teams); $("sTeam").value = "LG Twins";
+  fill($("sOpp"), META.teams, "All opponents");
+  const pitchers = () => { fill($("sPitcher"), META.roster[$("sTeam").value].pitchers); };
+  pitchers();
+  $("sTeam").onchange = () => { pitchers(); PICK = null; loadScout(); };
+  $("sPitcher").onchange = () => { PICK = null; loadScout(); };
+  $("sOpp").onchange = loadScout;
+  ["kmhMin", "kmhMax", "hbMin", "hbMax", "ivbMin", "ivbMax"].forEach((id) => ($(id).onchange = loadScout));
+  $("sSide").onclick = (e) => { if (e.target.dataset.s === undefined) return; SIDE = e.target.dataset.s;
+    [...$("sSide").children].forEach((b) => b.classList.toggle("on", b === e.target)); loadScout(); };
+  $("sTable").onclick = (e) => { const tr = e.target.closest("tr.pick"); if (!tr) return; PICK = PICK === tr.dataset.p ? null : tr.dataset.p; drawScout(); };
+  $("sReset").onclick = () => { [["kmhMin", 100], ["kmhMax", 165], ["hbMin", -60], ["hbMax", 60], ["ivbMin", -60], ["ivbMax", 60]].forEach(([id, v]) => ($(id).value = v));
+    SIDE = ""; [...$("sSide").children].forEach((b, i) => b.classList.toggle("on", i === 0)); PICK = null; loadScout(); };
+  loadScout();
+}

@@ -35,6 +35,7 @@ def test_number_check():
     assert unsourced("Whiffs 31% of the time on 412 pitches in a 1-2 count.", evidence) == []
     assert unsourced("Whiffs 45% of the time.", evidence) == [0.45]
     assert unsourced("Throw it 2 times.", evidence) == []
+    assert unsourced("Whiffs 31 % of the time, or 31\u202f%.", evidence) == []
     big = json.dumps({"taken_pitches": 10916})
     assert unsourced("Of 10,916 taken pitches...", big) == []
     assert unsourced("Of 10,961 taken pitches...", big) == [10961.0]
@@ -68,3 +69,37 @@ def test_names_resolve_however_they_are_typed(tools):
     assert tools.resolve(typed, "pitcher") == name
     assert "error" not in tools.call("pitcher_profile", {"pitcher": typed})
     assert tools.call("pitcher_profile", {"pitcher": "Nobody Here"})["error"].startswith("No pitcher named")
+
+
+def test_a_follow_up_can_use_numbers_from_an_earlier_turn(tools):
+    from abs_assist.coach import Conversation
+    pitcher = tools.db.execute("SELECT pitcher FROM pitches LIMIT 1").fetchone()[0]
+    rate = tools.call("pitcher_profile", {"pitcher": pitcher})["whiff_rate"]
+    coach, convo = Coach(tools, scripted(tool_call("pitcher_profile", pitcher=pitcher),
+                                         {"content": "He's a strike thrower."},
+                                         {"content": f"Because his whiff rate is {rate * 100:.1f}%."})), Conversation()
+    coach.ask(f"Tell me about {pitcher}.", convo)
+    out = coach.ask("Why do you say that?", convo)
+    assert not out["corrected"] and out["tools_used"] == []
+    assert [m["role"] for m in convo.messages].count("user") == 2
+
+
+def test_a_rejected_answer_is_dropped_from_the_history(tools):
+    from abs_assist.coach import Conversation
+    convo = Conversation()
+    Coach(tools, scripted({"content": "About 47% of the time."}, {"content": "I don't have that number."})).ask("How often?", convo)
+    texts = [m["content"] for m in convo.messages]
+    assert "About 47% of the time." not in texts and not any(t.startswith("[check]") for t in texts)
+    assert texts[-1] == "I don't have that number."
+
+
+def test_trimming_keeps_tool_results_with_their_calls():
+    from abs_assist.coach import KEEP_MESSAGES, Conversation
+    convo = Conversation()
+    for i in range(30):
+        convo.messages += [{"role": "user", "content": f"q{i}"},
+                           {"role": "assistant", "content": "", "tool_calls": [{"id": f"c{i}"}]},
+                           {"role": "tool", "tool_call_id": f"c{i}", "content": "{}"},
+                           {"role": "assistant", "content": "a"}]
+    kept = convo.trimmed()
+    assert kept[0]["role"] == "system" and kept[1]["role"] == "user" and len(kept) <= KEEP_MESSAGES + 1

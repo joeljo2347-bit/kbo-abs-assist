@@ -19,9 +19,12 @@ COLUMNS = {
     "batter_team": str, "batter_height_cm": float, "balls": int, "strikes": int, "pitch_type": str,
     "kmh": float, "x_cm": float, "z_mid_cm": float, "z_end_cm": float, "swing": bool, "result": str,
 }
-OPTIONAL = {"pa_result": str, "reported_strike": bool, "vaa_deg": float, "intent": str}
+OPTIONAL = {"pa_result": str, "reported_strike": bool, "vaa_deg": float, "intent": str,
+            "pitcher_throws": str, "batter_side": str, "hb_cm": float, "ivb_cm": float}
 RANGES = {"batter_height_cm": (150, 215), "balls": (0, 3), "strikes": (0, 2), "kmh": (60, 170),
           "x_cm": (-150, 150), "z_mid_cm": (-50, 250), "z_end_cm": (-50, 250), "inning": (1, 15)}
+OPTIONAL_RANGES = {"hb_cm": (-90, 90), "ivb_cm": (-90, 90)}
+HANDS = {"pitcher_throws": ("R", "L"), "batter_side": ("R", "L")}
 DERIVED = {"abs_strike": int, "abs_margin_cm": float, "abs_rule": str, "feed_disagrees": int}
 
 
@@ -43,6 +46,17 @@ def validate(event: Dict[str, Any]) -> Optional[str]:
     for name, (lo, hi) in RANGES.items():
         if not lo <= event[name] <= hi:
             return f"{name}={event[name]} is outside {lo}..{hi}"
+    return _optional_problem(event)
+
+
+def _optional_problem(event: Dict[str, Any]) -> Optional[str]:
+    """Optional fields may be missing, but when present they must make sense."""
+    for name, (lo, hi) in OPTIONAL_RANGES.items():
+        if event.get(name) is not None and not lo <= event[name] <= hi:
+            return f"{name}={event[name]} is outside {lo}..{hi}"
+    for name, allowed in HANDS.items():
+        if event.get(name) is not None and event[name] not in allowed:
+            return f"{name} must be R or L"
     return None
 
 

@@ -15,9 +15,9 @@ def train_predictor(db: sqlite3.Connection) -> PitchPredictor:
     """Replay every collected pitch in order, as the live system would have seen it."""
     model = PitchPredictor()
     prev: Dict[Tuple[int, str], str] = {}
-    for game, pitcher, balls, strikes, kind in db.execute(
-            "SELECT game_id, pitcher, balls, strikes, pitch_type FROM pitches ORDER BY id"):
-        model.update(pitcher, balls, strikes, prev.get((game, pitcher), ""), kind)
+    for game, pitcher, balls, strikes, kind, side in db.execute(
+            "SELECT game_id, pitcher, balls, strikes, pitch_type, batter_side FROM pitches ORDER BY id"):
+        model.update(pitcher, balls, strikes, prev.get((game, pitcher), ""), kind, side or "")
         prev[(game, pitcher)] = kind
     return model
 
@@ -41,7 +41,8 @@ SCHEMA: List[Dict[str, Any]] = [
                     "strikes": _param("integer", "0-2")}},
     {"name": "predict_next_pitch", "description": "Probability of each pitch type this pitcher throws next.",
      "parameters": {"pitcher": _param("string", "exact pitcher name"), "balls": _param("integer", "0-3"),
-                    "strikes": _param("integer", "0-2"), "previous_pitch": _param("string", "previous pitch type, or empty")}},
+                    "strikes": _param("integer", "0-2"), "previous_pitch": _param("string", "previous pitch type, or empty"),
+                    "batter_side": _param("string", "the batter's side, R or L, or empty if unknown")}},
     {"name": "strikes_lost_at_back",
      "description": "Taken pitches in the zone at the middle of the plate but called balls at the back edge, for a team's pitchers.",
      "parameters": {"team": _param("string", "team name, e.g. 'LG Twins'")}},
@@ -64,8 +65,9 @@ class Toolbox:
             "batter_profile": lambda batter: batter_profile(db, batter),
             "recommend_pitch": lambda pitcher, batter, balls, strikes: self.strategy.recommend(pitcher, batter, int(balls), int(strikes)),
             "take_guide": lambda batter, balls, strikes: self.strategy.take_guide(batter, int(balls), int(strikes)),
-            "predict_next_pitch": lambda pitcher, balls, strikes, previous_pitch="": {
-                k: round(v, 3) for k, v in self.predictor.predict(pitcher, int(balls), int(strikes), previous_pitch).items()},
+            "predict_next_pitch": lambda pitcher, balls, strikes, previous_pitch="", batter_side="": {
+                k: round(v, 3) for k, v in self.predictor.predict(
+                    pitcher, int(balls), int(strikes), previous_pitch, batter_side).items()},
             "strikes_lost_at_back": lambda team: lost_at_back(rows(self.db, pitcher_team=team)),
         }
 

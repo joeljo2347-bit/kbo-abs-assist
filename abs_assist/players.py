@@ -8,7 +8,7 @@ from ranges that look like a professional league: heights around 181 cm, fastbal
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -20,13 +20,16 @@ _GIVEN = ["Min-jun", "Seo-jun", "Do-yun", "Ha-jun", "Ji-ho", "Jun-seo", "Hyun-wo
           "Woo-jin", "Seung-min", "Tae-yang", "Dong-hyun", "Jae-won", "Sung-ho", "Yeon-woo"]
 
 # Pitch types: mean speed (km/h) and vertical approach angle (degrees below horizontal).
+# Pitch types: mean speed (km/h), vertical approach angle (degrees below horizontal), and movement
+# for a right-hander in cm: horizontal break (+ = toward his arm side) and induced vertical break
+# (+ = less drop than gravity alone), typical of professional pitch shapes.
 PITCH_TYPES: Dict[str, Dict[str, float]] = {
-    "fastball": {"kmh": 145, "vaa": 4.8},
-    "sinker": {"kmh": 142, "vaa": 6.0},
-    "slider": {"kmh": 133, "vaa": 6.6},
-    "changeup": {"kmh": 130, "vaa": 7.2},
-    "splitter": {"kmh": 132, "vaa": 7.6},
-    "curveball": {"kmh": 118, "vaa": 9.4},
+    "fastball": {"kmh": 145, "vaa": 4.8, "hb": 20, "ivb": 40},
+    "sinker": {"kmh": 142, "vaa": 6.0, "hb": 38, "ivb": 20},
+    "slider": {"kmh": 133, "vaa": 6.6, "hb": -13, "ivb": 5},
+    "changeup": {"kmh": 130, "vaa": 7.2, "hb": 35, "ivb": 18},
+    "splitter": {"kmh": 132, "vaa": 7.6, "hb": 20, "ivb": 6},
+    "curveball": {"kmh": 118, "vaa": 9.4, "hb": -20, "ivb": -30},
 }
 
 
@@ -39,6 +42,9 @@ class Pitcher:
     ahead_breaking: float = 0.5          # how much more he throws non-fastballs when ahead in the count
     follow: Dict[str, Dict[str, float]] = field(default_factory=dict)  # previous pitch -> preference multipliers
     stamina: int = 85                    # pitches before he starts to tire
+    throws: str = "R"                    # R or L
+    velo: float = 0.0                    # his speed above or below the league norm, km/h
+    shape: Dict[str, Tuple[float, float]] = field(default_factory=dict)  # pitch -> (hb, ivb) offsets in cm
 
 
 @dataclass
@@ -49,6 +55,7 @@ class Batter:
     discipline: float                   # 0..1, higher = fewer chases
     contact: float                      # 0..1, higher = fewer whiffs
     power: float                        # 0..1, higher = more extra-base hits
+    bats: str = "R"                     # R, L or S (switch: bats opposite the pitcher)
 
 
 def _name(rng: np.random.Generator, used: set) -> str:
@@ -75,16 +82,25 @@ def _follow(arsenal: Dict[str, float], rng: np.random.Generator) -> Dict[str, Di
 
 
 def _pitcher(team: str, rng: np.random.Generator, used: set) -> Pitcher:
+    """About a quarter of pitchers are left-handed. Each has his own speed and pitch shapes."""
     arsenal = _arsenal(rng)
+    shape = {k: (float(rng.normal(0, 4)), float(rng.normal(0, 4))) for k in arsenal}
     return Pitcher(_name(rng, used), team, float(rng.uniform(9, 17)), arsenal,
-                   float(rng.uniform(0.2, 1.2)), _follow(arsenal, rng), int(rng.integers(70, 105)))
+                   float(rng.uniform(0.2, 1.2)), _follow(arsenal, rng), int(rng.integers(70, 105)),
+                   "L" if rng.random() < 0.27 else "R", float(rng.normal(0, 2.5)), shape)
+
+
+def _batter(team: str, rng: np.random.Generator, used: set) -> Batter:
+    """About 58% bat right-handed, 36% left, 6% switch."""
+    return Batter(_name(rng, used), team, float(np.clip(rng.normal(181, 6), 168, 197)),
+                  float(rng.beta(5, 4)), float(rng.beta(6, 3)), float(rng.beta(3, 5)),
+                  str(rng.choice(["R", "L", "S"], p=[0.58, 0.36, 0.06])))
 
 
 def roster(team: str, rng: np.random.Generator, used: set) -> tuple:
     """Six pitchers and nine batters for one team."""
     pitchers = [_pitcher(team, rng, used) for _ in range(6)]
-    batters = [Batter(_name(rng, used), team, float(np.clip(rng.normal(181, 6), 168, 197)),
-                      float(rng.beta(5, 4)), float(rng.beta(6, 3)), float(rng.beta(3, 5))) for _ in range(9)]
+    batters = [_batter(team, rng, used) for _ in range(9)]
     return pitchers, batters
 
 

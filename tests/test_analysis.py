@@ -62,4 +62,4 @@ def test_recommendations_come_from_his_arsenal(db):
     arsenal = {k for (k,) in db.execute("SELECT DISTINCT pitch_type FROM pitches WHERE pitcher=?", (name,))}
     rec = st.recommend(name, batter, 1, 2)
     assert rec["best"] and all(r["pitch"].split(",")[0] in arsenal for r in rec["best"])
-    assert rec["best"][0]["batter_value_after"] <= rec["worst"][-1]["batter_value_after"]
+    assert rec["best"][0]["batter_value_after_runs"] <= rec["worst"][-1]["batter_value_after_runs"]

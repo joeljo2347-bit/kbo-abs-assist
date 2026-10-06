@@ -113,12 +113,13 @@ def describe(key: Key) -> str:
     return f"{kind}, {PLACES[height]}, {SIDES[side]}"
 
 
-READ_ME = ("batter_value_after: the batter's expected run value after this pitch (lower is better for the "
-           "pitcher); batter_value_now is the same for the count before the pitch. The chances are 0-1.")
+READ_ME = ("batter_value_after_runs: the batter's expected runs after this pitch, in runs, not a percentage (lower is "
+           "better for the pitcher); batter_value_now_runs is the same for the count before the pitch. The fields "
+           "ending in _chance are probabilities from 0 to 1.")
 
 
 def _readable(key: Key, ev: Dict[str, float]) -> Dict[str, Any]:
-    return {"pitch": describe(key), "batter_value_after": round(ev["overall"], 3),
+    return {"pitch": describe(key), "batter_value_after_runs": round(ev["overall"], 3),
             "swing_chance": round(ev["p_swing"], 3), "whiff_chance_if_swung_at": round(ev["p_whiff"], 3),
             "called_strike_chance_if_taken": round(ev["p_called_strike"], 3)}
 
@@ -143,7 +144,7 @@ class Strategy:
         """The pitches that give this batter the least from this count."""
         ranked = sorted(self.options(pitcher, batter, b, s), key=lambda kv: kv[1]["overall"])
         return {"how_to_read": READ_ME, "count": f"{b}-{s}",
-                "batter_value_now": round(self.values[(b, s)], 3),
+                "batter_value_now_runs": round(self.values[(b, s)], 3),
                 "best": [_readable(k, ev) for k, ev in ranked[:top]],
                 "worst": [_readable(k, ev) for k, ev in ranked[-2:]]}
 
@@ -153,7 +154,8 @@ class Strategy:
         rated = [(k, evaluate(r, b, s, self.values, tilt)) for k, r in self.league.items()
                  if k[2] == (s == 2) and r.n >= MIN_PITCHES and r.takes >= 10]
         gains = sorted(((ev["take"] - ev["swing"], k, ev) for k, ev in rated), key=lambda t: -t[0])
-        return {"how_to_read": "gain_from_taking: how much more run value the batter gets by taking than swinging.",
-                "count": f"{b}-{s}", "take": [{"pitch": describe(k), "gain_from_taking": round(g, 3),
+        return {"how_to_read": "gain_from_taking_runs: how many more runs (not a percentage) the batter is expected to get "
+                               "by taking than by swinging. p_called_strike: probability 0-1 that it's called a strike.",
+                "count": f"{b}-{s}", "take": [{"pitch": describe(k), "gain_from_taking_runs": round(g, 3),
                                                "p_called_strike": round(ev["p_called_strike"], 3)}
                                               for g, k, ev in gains[:top] if g > 0]}

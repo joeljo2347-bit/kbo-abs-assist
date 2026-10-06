@@ -22,6 +22,9 @@ def test_bad_events_are_refused_with_a_reason():
     assert validate(event(balls=4)) == "balls=4 is outside 0..3"
     assert validate({k: v for k, v in event().items() if k != "x_cm"}) == "missing x_cm"
     assert validate(event(kmh="fast")) == "kmh must be a number"
+    assert validate(event(batter_side="X")) == "batter_side must be R or L"
+    assert validate(event(hb_cm=120.0)) == "hb_cm=120.0 is outside -90..90"
+    assert validate(event(hb_cm=-12.5, ivb_cm=40.0, pitcher_throws="L", batter_side="R")) is None
     report = ingest(open_store(), [event(), event(batter_height_cm=90)])
     assert report.accepted == 1 and report.rejected == [(1, "batter_height_cm=90 is outside 150..215")]
 

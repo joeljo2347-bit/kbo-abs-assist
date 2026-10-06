@@ -17,19 +17,15 @@ import numpy as np
 
 from abs_assist.players import all_pitchers, league
 from abs_assist.predict import PitchPredictor
-from abs_assist.sim import season
+from abs_assist.sim import season, type_odds
 
 HERE = Path(__file__).resolve().parent
 GAMES, SEED, BINS = 720, 2025, 6
 
 
-def true_odds(pitcher, balls: int, strikes: int, prev: str) -> Dict[str, float]:
-    """The simulation's own probabilities for this pitch (mirrors sim.choose_type)."""
-    lead = strikes - balls
-    w = {k: s * (1 + 0.6 * max(-lead, 0) if k == "fastball" else 1 + pitcher.ahead_breaking * max(lead, 0))
-         * pitcher.follow.get(prev, {}).get(k, 1.0) for k, s in pitcher.arsenal.items()}
-    total = sum(w.values())
-    return {k: v / total for k, v in w.items()}
+def true_odds(pitcher, r: Dict, prev: str) -> Dict[str, float]:
+    """The simulation's own probabilities for this pitch: the same function it draws from."""
+    return type_odds(pitcher, r["balls"], r["strikes"], prev, r["batter_side"] == r["pitcher_throws"])
 
 
 def score_stream(games: int = GAMES, seed: int = SEED) -> List[Dict]:
@@ -41,16 +37,17 @@ def score_stream(games: int = GAMES, seed: int = SEED) -> List[Dict]:
     for r in season(games, seed):
         name, key = r["pitcher"], (r["game_id"], r["pitcher"])
         before = prev.get(key, "")
-        guess, p_model = model.top(name, r["balls"], r["strikes"], before)
-        dist = model.predict(name, r["balls"], r["strikes"], before)
+        side = r["batter_side"]
+        guess, p_model = model.top(name, r["balls"], r["strikes"], before, side)
+        dist = model.predict(name, r["balls"], r["strikes"], before, side)
         own = mix.setdefault(name, {})
-        odds = true_odds(pitchers[name], r["balls"], r["strikes"], before)
+        odds = true_odds(pitchers[name], r, before)
         out.append({"game": r["game_id"], "model": guess == r["pitch_type"],
                     "own_mix": bool(own) and max(own, key=lambda k: own[k]) == r["pitch_type"],
                     "fastball": r["pitch_type"] == "fastball",
                     "ceiling": max(odds, key=lambda k: odds[k]) == r["pitch_type"],
                     "logloss": -math.log(max(dist.get(r["pitch_type"], 1e-6), 1e-6)) if dist else None})
-        model.update(name, r["balls"], r["strikes"], before, r["pitch_type"])
+        model.update(name, r["balls"], r["strikes"], before, r["pitch_type"], side)
         own[r["pitch_type"]] = own.get(r["pitch_type"], 0) + 1
         prev[key] = r["pitch_type"]
     return out
