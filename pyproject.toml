@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 150
+target-version = "py39"
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+# UP rules that rewrite Optional[X] as X | None are left off: Python 3.9 evaluates pydantic and
+# TypedDict annotations at runtime, where that syntax fails. B008 flags FastAPI's File(...) idiom.
+select = ["E", "F", "W", "I", "B"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+exclude = ["\\.venv/", "build/", "dist/"]

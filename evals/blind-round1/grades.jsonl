@@ -1,0 +1,10 @@
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "No tool calls and no answer; only asks for a pitcher name instead of addressing the question."}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Misreads chase rate as a share of plate appearances and invents a 'mid-plate width' reading of the vertical zone."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": false, "useful": true, "note": "Calls the top pitch a splitter 'high' on the edge when the tool says belt-high."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "No answer given; name-format errors were never resolved."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Uses strikes lost at the back instead of whiff rate; by whiff rate Jung (0.206) misses more bats than Lee (0.188)."}
