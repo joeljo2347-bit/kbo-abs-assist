@@ -1,0 +1,10 @@
+{"id": "547b5b7878", "pass": false, "useful": true, "note": "Misreads gain_from_taking_runs 0.409 runs as '41% more runs'."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "Checked only 2 of 9 Doosan batters, so the 'largest zone' claim is unsupported."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": false, "note": "Called no tools and gives no explanation, only a vague claim that numbers are unavailable."}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Mislabels the stat as 'RBI-in-scoring-position average' and offers an overall batting average that no tool provided."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Never answers how hard he throws and doesn't say velocity is unavailable."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Queried only LG Twins, then claimed they lose the most strikes of any team."}
+{"id": "590ddb527d", "pass": false, "useful": false, "note": "Never looked up Park Ha-jun (e.g. pitcher_profile) and asked for a batter instead of answering."}
+{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Makes up a 'free-swinger threshold' and says he 'rarely takes off-zone pitches', the opposite of what a 23% chase rate means."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

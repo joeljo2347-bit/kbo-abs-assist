@@ -101,7 +101,7 @@ def _stat(metric: str) -> Callable[[float], str]:
 
 
 def board(r: Dict[str, Any]) -> List[Block]:
-    metric = next(k for k in r["ranking"][0] if k not in ("name", "pitches"))
+    metric = r["metric"]
     fmt = _stat(metric)
     data = {row["name"]: row[metric] for row in r["ranking"]}
     avg = r.get("league_average")

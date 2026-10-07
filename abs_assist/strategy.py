@@ -114,6 +114,23 @@ def describe(key: Key) -> str:
     return f"{kind}, {PLACES[height]}, {SIDES[side]}"
 
 
+def _in_zone(key: Key) -> bool:
+    _, (height, side), _ = key
+    return height in ("low", "middle", "high") and side != "off"
+
+
+def take_summary(better: List[Tuple[float, Key, Dict[str, float]]], rated: List[Key]) -> str:
+    """The overall answer for this count, worked out in code: what to swing at and what to take."""
+    zone_all = sum(map(_in_zone, rated))
+    zone_take = sum(1 for _, k, _ in better if _in_zone(k))
+    out_all, out_take = len(rated) - zone_all, len(better) - zone_take
+    plan = ("swing at strikes, take balls" if zone_take <= 0.25 * zone_all and out_take >= 0.75 * out_all
+            else "be patient: take most pitches" if len(better) > 0.75 * len(rated)
+            else "be aggressive: swing at most pitches" if len(better) < 0.25 * len(rated) else "be selective")
+    return (f"Verdict: {plan}. In the zone, taking is better on {zone_take} of {zone_all} pitch types and locations "
+            f"(swing at the rest); outside the zone, taking is better on {out_take} of {out_all}.")
+
+
 READ_ME = ("batter_value_after_runs: the batter's expected runs after this pitch, in runs, not a percentage (lower is "
            "better for the pitcher); batter_value_now_runs is the same for the count before the pitch. The fields "
            "ending in _chance are probabilities from 0 to 1.")
@@ -167,8 +184,10 @@ class Strategy:
         rated = [(k, evaluate(r, b, s, self.values, tilt)) for k, r in self.league.items()
                  if k[2] == (s == 2) and r.n >= MIN_PITCHES and r.takes >= 10]
         gains = sorted(((ev["take"] - ev["swing"], k, ev) for k, ev in rated), key=lambda t: -t[0])
+        better = [(g, k, ev) for g, k, ev in gains if g > 0]
         return {"how_to_read": "gain_from_taking_runs: how many more runs (not a percentage) the batter is expected to get "
-                               "by taking than by swinging. p_called_strike: probability 0-1 that it's called a strike.",
-                "count": f"{b}-{s}", "take": [{"pitch": describe(k), "gain_from_taking_runs": round(g, 3),
-                                               "p_called_strike": round(ev["p_called_strike"], 3)}
-                                              for g, k, ev in gains[:top] if g > 0]}
+                               "by taking than by swinging, for that one pitch and location. p_called_strike: probability "
+                               "0-1 that it's called a strike. summary: the overall answer, worked out in code.",
+                "count": f"{b}-{s}", "summary": take_summary(better, [k for k, _ in rated]),
+                "take": [{"pitch": describe(k), "gain_from_taking_runs": round(g, 3), "p_called_strike": round(ev["p_called_strike"], 3)}
+                         for g, k, ev in better[:top]]}

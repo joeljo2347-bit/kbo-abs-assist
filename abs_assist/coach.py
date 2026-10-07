@@ -33,7 +33,13 @@ SYSTEM = (
     "when none is. What a hitter should take or lay off: take_guide. What a pitcher is likely to throw: "
     "predict_next_pitch. Speeds, pitch types and what follows a pitch: pitcher_arsenal. Player stats: pitcher_profile "
     "or batter_profile. Who or which team is highest or lowest at anything: leaderboard. How ABS works: abs_rules.\n"
-    "- Whether a number is high or low: compare it with the league average the tool gives, and say both.\n"
+    "- Whether a number is high or low: use the tool's verdict (worked out in code) and say the value and the league "
+    "average. Never work out a direction or a count of players yourself; take it from the tool.\n"
+    "- If the question asks for a split the tools don't have (runners on base, home or away, by month), say it isn't "
+    "available; never give an overall number in its place. 'Which team' questions compare teams, not players.\n"
+    "- Never ask the coach for details the question doesn't need: what a pitcher throws doesn't need a batter, and a "
+    "batter's tendencies don't need a pitcher. If a tool returns an error, fix the call (the right kind of player, the "
+    "exact name) and call it again before answering.\n"
     "- Don't stall. If something isn't specified, make a sensible assumption, say it in "
     "a few words, and answer. Ask a clarifying question only when no useful answer is possible.\n"
     "- If the tools don't have something (ERA, handedness, spin rate), say so plainly and offer what they do have.\n"
@@ -128,6 +134,33 @@ def problems(answer: str, evidence: str) -> List[str]:
                   for m in _VAGUE_SIDE.finditer(answer)]
 
 
+_COUNT = re.compile(r"\b([0-3])-([0-2])\b")
+
+
+def count_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """A count named in the question that the tools were asked about with a different count."""
+    named = {(int(b), int(s)) for b, s in _COUNT.findall(question)} | ({(3, 2)} if "full count" in question.lower() else set())
+    used = {(c["args"]["balls"], c["args"]["strikes"]) for c in calls
+            if isinstance(c.get("args"), dict) and isinstance(c["args"].get("balls"), int) and isinstance(c["args"].get("strikes"), int)}
+    wrong = sorted(used - named) if named and not used & named else []
+    return [f"tools called for the count {b}-{s}, but the question is about {', '.join(f'{x}-{y}' for x, y in sorted(named))}"
+            for b, s in wrong]
+
+
+def unlabeled_runs(answer: str, evidence: str) -> List[str]:
+    """A number that only a runs field supports, written without saying it's in runs."""
+    runs = [v for v, _ in numbers(" ".join(_RUNS_FIELD.findall(evidence)))]
+    other = [v for v, _ in numbers(_RUNS_FIELD.sub("", evidence))]
+    bad = []
+    for m in _NUMBER.finditer(answer):
+        value = float(m.group(0).replace(",", "").rstrip("% \u00a0\u202f"))
+        if not m.group(0).endswith("%") and _supported(value, runs) and not _supported(value, other) \
+                and "run" not in answer[m.end():m.end() + 30].lower():
+            bad.append(f"{m.group(0)} (say it is expected runs)")
+    return bad
+
+
+UNLOOKED = "an answer with nothing looked up (call the tool that answers the question; don't ask the coach for details it doesn't need)"
 CHECK = ("[check] Your last answer has things no tool result supports: {bad}. Rewrite your answer to the "
          "coach's last question using only numbers and locations from tool results (call a tool if you need one). "
          "Reply with the rewritten answer only, addressed to the coach; don't mention this check.")
@@ -229,7 +262,8 @@ class Coach:
             answer = self._step(convo, calls) or ""
             if not answer:
                 continue
-            bad = problems(answer, convo.evidence + " " + RULE_FACTS)
+            bad = (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
+                   + count_problems(question, calls) + ([] if convo.evidence else [UNLOOKED]))
             if not bad or check is not None:
                 final = answer
                 break

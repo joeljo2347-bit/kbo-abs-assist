@@ -1,7 +1,7 @@
-{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Tool was called with an empty batter, so the plan is not Jang Ji-ho's, yet the answer presents it as his; 'you'll likely get an out or weak contact' is unsupported."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says 'high and outside' but the tool lists pitches above the zone toward a corner or over the middle, not outside."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Question asks about a 2-0 count but the tool was called and answered for 0-2 ('with two strikes')."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Blanket 'Take on the first pitch' contradicts the tool summary that swinging is better on 52 of 118 pitch types and locations."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}

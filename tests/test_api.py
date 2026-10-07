@@ -9,8 +9,11 @@ from abs_assist.sim import season
 
 
 def replies(*texts):
+    """A scripted model: looks something up once per conversation (the coach requires it), then answers."""
     queue = list(texts)
-    return lambda messages, schema: {"content": queue.pop(0)}
+    lookup = {"content": "", "tool_calls": [{"id": "c1", "type": "function",
+                                             "function": {"name": "find_players", "arguments": '{"query": "LG Twins"}'}}]}
+    return lambda messages, schema: {"content": queue.pop(0)} if any(m["role"] == "tool" for m in messages) else lookup
 
 
 @pytest.fixture(scope="module")

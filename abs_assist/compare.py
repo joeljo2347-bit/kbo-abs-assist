@@ -25,6 +25,20 @@ PITCHER_METRICS = {
     "in_zone_rate": "share of his pitches inside the ABS zone", "chase_rate": "share of his pitches outside the zone that were swung at",
     "whiff_rate": "share of swings against him that missed", "fastball_kmh": "average fastball speed, km/h",
     "strikes_lost_at_back_rate": "share of his taken pitches that were strikes at the middle of the plate but balls at the back",
+    "strikeout_rate": "strikeouts per batter faced", "walk_rate": "walks per batter faced",
+}
+# What a value above the league average means, in words, so the direction is never guessed.
+HIGH_MEANS = {
+    ("batter", "chase_rate"): "swings at more pitches outside the zone (worse at laying off)",
+    ("batter", "zone_swing_rate"): "swings at more strikes (more aggressive in the zone)",
+    ("batter", "whiff_rate"): "misses more often when he swings",
+    ("batter", "zone_height_cm"): "a taller ABS zone", ("batter", "batting_average"): "a better hitter for average",
+    ("batter", "home_runs"): "more home runs", ("batter", "strikeout_rate"): "strikes out more often",
+    ("batter", "walk_rate"): "walks more often",
+    ("pitcher", "in_zone_rate"): "throws more pitches in the zone", ("pitcher", "chase_rate"): "gets more chases",
+    ("pitcher", "whiff_rate"): "gets more swings and misses", ("pitcher", "fastball_kmh"): "throws harder",
+    ("pitcher", "strikes_lost_at_back_rate"): "loses more strikes at the back of the plate",
+    ("pitcher", "strikeout_rate"): "strikes out more batters", ("pitcher", "walk_rate"): "walks more batters",
 }
 QUALIFY = 0.3  # qualified: at least this share of the median player's pitches (scales with how much data there is)
 
@@ -38,7 +52,7 @@ def batter_line(data: List[Row]) -> Dict[str, Any]:
     pas = [r["pa_result"] for r in data if r["pa_result"]]
     walks, hits = pas.count("walk"), sum(p in HITS for p in pas)
     bottom, top = RULES.bounds(data[0]["batter_height_cm"])
-    return {"pitches": len(data), "plate_appearances": len(pas), "zone_height_cm": round(top - bottom, 1),
+    return {"team": data[0]["batter_team"], "pitches": len(data), "plate_appearances": len(pas), "zone_height_cm": round(top - bottom, 1),
             "zone_swing_rate": _ratio(sum(r["swing"] for r in zone), len(zone)),
             "chase_rate": _ratio(sum(r["swing"] for r in out), len(out)),
             "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in data), sum(r["swing"] for r in data)),
@@ -50,12 +64,14 @@ def batter_line(data: List[Row]) -> Dict[str, Any]:
 def pitcher_line(data: List[Row]) -> Dict[str, Any]:
     zone, swings = [r for r in data if r["abs_strike"]], [r for r in data if r["swing"]]
     fastballs = [r["kmh"] for r in data if r["pitch_type"] == "fastball"]
-    lost = lost_at_back(data)
-    return {"pitches": len(data), "in_zone_rate": _ratio(len(zone), len(data)),
+    lost, pas = lost_at_back(data), [r["pa_result"] for r in data if r["pa_result"]]
+    return {"team": data[0]["pitcher_team"], "pitches": len(data), "in_zone_rate": _ratio(len(zone), len(data)),
             "chase_rate": _ratio(sum(not r["abs_strike"] for r in swings), len(data) - len(zone)),
             "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in swings), len(swings)),
             "fastball_kmh": round(sum(fastballs) / len(fastballs), 1) if fastballs else None,
-            "strikes_lost_at_back": lost["strikes_lost"], "strikes_lost_at_back_rate": lost["share_of_takes"]}
+            "strikes_lost_at_back": lost["strikes_lost"], "strikes_lost_at_back_rate": lost["share_of_takes"],
+            "batters_faced": len(pas), "strikeout_rate": _ratio(pas.count("strikeout"), len(pas)),
+            "walk_rate": _ratio(pas.count("walk"), len(pas))}
 
 
 class League:
@@ -95,18 +111,39 @@ class League:
         values = [v[metric] for v in self.qualified(kind).values() if v.get(metric) is not None]
         return round(sum(values) / len(values), 3) if values else None
 
-    def rank(self, kind: str, name: str, metric: str) -> Optional[str]:
-        """'3 of 90 (1 = highest)' among qualified players or teams."""
+    def rank(self, kind: str, name: str, metric: str) -> Optional[Dict[str, int]]:
+        """How many qualified others are above and below him."""
         pool = self.qualified(kind)
         if name not in pool or pool[name].get(metric) is None:
             return None
-        values = sorted((v[metric] for v in pool.values() if v.get(metric) is not None), reverse=True)
-        return f"{values.index(pool[name][metric]) + 1} of {len(values)} (1 = highest)"
+        mine = pool[name][metric]
+        others = [v[metric] for n, v in pool.items() if n != name and v.get(metric) is not None]
+        return {"others_higher": sum(o > mine for o in others), "others_lower": sum(o < mine for o in others),
+                "others": len(others)}
+
+
+def verdict(league: League, kind: str, name: str, metric: str) -> Dict[str, Any]:
+    """His value against the league, with the conclusion written in code: above, below or about average,
+    and what that means for this stat."""
+    value = league.qualified(kind).get(name, {}).get(metric)
+    avg, rank = league.average(kind, metric), league.rank(kind, name, metric)
+    if value is None or avg is None or rank is None:
+        return {"value": value, "league_average": avg, "verdict": "not enough data to compare"}
+    lower, higher, n = rank["others_lower"], rank["others_higher"], rank["others"]
+    if lower > 0.6 * n:
+        word = f"higher than most ({lower} of {n} others are lower): {HIGH_MEANS[(kind, metric)]}"
+    elif higher > 0.6 * n:
+        word = f"lower than most ({higher} of {n} others are higher): the opposite of {HIGH_MEANS[(kind, metric)]}"
+    else:
+        word = f"in the middle of the pack ({lower} of {n} others are lower, {higher} higher)"
+    side = "above" if value > avg else "below" if value < avg else "at"
+    return {"value": value, "league_average": avg, **rank, "verdict": word,
+            "vs_average": f"{side} the league average (a few extreme players can pull the average away from the middle)"}
 
 
 def context(league: League, kind: str, name: str, metrics: Dict[str, str]) -> Dict[str, Any]:
-    """League average and rank for each metric of one player."""
-    return {m: {"league_average": league.average(kind, m), "rank": league.rank(kind, name, m)} for m in metrics}
+    """His standing on each metric against qualified players."""
+    return {m: verdict(league, kind, name, m) for m in metrics}
 
 
 def leaderboard(league: League, metric: str, who: str = "batters", team: str = "", top: int = 10) -> Dict[str, Any]:
@@ -122,8 +159,9 @@ def leaderboard(league: League, metric: str, who: str = "batters", team: str = "
         pool = {n: v for n, v in pool.items() if n in names}
     ranked = sorted((n for n in pool if pool[n].get(metric) is not None), key=lambda n: -pool[n][metric])
     return {"how_to_read": f"{metric}: {metrics[metric]}. Highest first; everyone qualified is counted.",
-            "who": who, "team": team or "all", "qualified": len(ranked), "league_average": league.average(kind, metric),
-            "ranking": [{"name": n, metric: pool[n][metric], "pitches": pool[n]["pitches"]} for n in ranked[:top]]}
+            "metric": metric, "who": who, "team": team or "all", "qualified": len(ranked), "league_average": league.average(kind, metric),
+            "ranking": [{"name": n, "team": pool[n].get("team", n), metric: pool[n][metric], "pitches": pool[n]["pitches"]}
+                        for n in ranked[:top]]}
 
 
 def arsenal(db: sqlite3.Connection, pitcher: str) -> Dict[str, Any]:
@@ -138,11 +176,30 @@ def arsenal(db: sqlite3.Connection, pitcher: str) -> Dict[str, Any]:
         if prev and prev["game_id"] == r["game_id"] and prev["batter"] == r["batter"]:
             after[prev["pitch_type"]][r["pitch_type"]] += 1
     return {"how_to_read": "usage and whiff_rate are 0-1; kmh is speed; hb_cm/ivb_cm are horizontal and vertical break. "
-                           "next_pitch_after: within the same at-bat, the share of each pitch he threw next.",
+                           "next_pitch_after: within the same at-bat, the share of each pitch he threw next. "
+                           "mix_by_situation: his pitch mix against left- and right-handed batters and with two strikes.",
+            "mix_by_situation": situational_mix(data),
             "pitcher": pitcher, "throws": data[0]["pitcher_throws"], "pitches": len(data),
-            "arsenal": [_pitch_line(k, v, len(data)) for k, v in sorted(by_type.items(), key=lambda kv: -len(kv[1]))],
+            "arsenal": (lines := [{**_pitch_line(k, v, len(data)), "role": "primary (most used)" if i == 0 else "secondary"}
+                                  for i, (k, v) in enumerate(sorted(by_type.items(), key=lambda kv: -len(kv[1])))]),
+            "secondary_with_most_whiffs": max((a for a in lines[1:] if a["whiff_rate"] is not None),
+                                              key=lambda a: a["whiff_rate"], default={}).get("pitch"),
             "next_pitch_after": {k: {n: _ratio(c, sum(v.values())) for n, c in sorted(v.items(), key=lambda kv: -kv[1])}
                                  for k, v in after.items()}}
+
+
+def _mix(data: List[Row]) -> Dict[str, Any]:
+    counts: Dict[str, int] = defaultdict(int)
+    for r in data:
+        counts[r["pitch_type"]] += 1
+    return {"pitches": len(data), **{k: _ratio(v, len(data)) for k, v in sorted(counts.items(), key=lambda kv: -kv[1])}}
+
+
+def situational_mix(data: List[Row]) -> Dict[str, Any]:
+    """Pitch mix against left- and right-handed batters, and with two strikes."""
+    return {"vs_left_handed_batters": _mix([r for r in data if r["batter_side"] == "L"]),
+            "vs_right_handed_batters": _mix([r for r in data if r["batter_side"] == "R"]),
+            "with_two_strikes": _mix([r for r in data if r["strikes"] == 2])}
 
 
 def _pitch_line(kind: str, data: List[Row], total: int) -> Dict[str, Any]:

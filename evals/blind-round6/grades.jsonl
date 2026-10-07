@@ -1,9 +1,9 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Describes the worst fastball as 'knee-high' when the tool says 'below the zone, on the edge'."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says 'high and outside' but the tool lists pitches above the zone toward a corner or over the middle, not outside."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims the fastball has the highest strike rate with two strikes, but no strike-rate data was provided."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}

@@ -100,7 +100,7 @@ def test_contradictory_events_are_refused():
 def test_an_unreadable_model_reply_is_a_503_and_the_conversation_still_works():
     db = open_store()
     ingest(db, season(2))
-    replies = iter([KeyError("choices"), {"content": "Fine."}])
+    replies = iter([KeyError("choices"), call("find_players", query="LG Twins"), {"content": "Fine."}])
 
     def chat(messages, schema):
         reply = next(replies)
@@ -134,7 +134,7 @@ def test_league_tools(tools):
     assert teams["qualified"] == 10
     pitcher = tools.find_players("LG Twins")["pitchers"][0]
     profile = tools.call("pitcher_profile", {"pitcher": pitcher})
-    assert profile["fastball_kmh"] and "rank" in profile["compared_with_league"]["whiff_rate"]
+    assert profile["fastball_kmh"] and "verdict" in profile["compared_with_league"]["whiff_rate"]
     arsenal = tools.call("pitcher_arsenal", {"pitcher": pitcher})
     assert arsenal["arsenal"][0]["usage"] >= arsenal["arsenal"][-1]["usage"] and arsenal["next_pitch_after"]
     assert "curveball" in tools.call("abs_rules", {})["low_pitches"]
@@ -146,3 +146,37 @@ def test_new_visuals(tools):
     for name, args in (("leaderboard", {"metric": "batting_average"}), ("abs_rules", {}),
                        ("pitcher_arsenal", {"pitcher": tools.find_players("LG Twins")["pitchers"][0]})):
         assert for_calls([{"tool": name, "args": args, "result": json.dumps(tools.call(name, args))}]), name
+
+
+def test_an_answer_with_nothing_looked_up_is_sent_back_once(tools):
+    queue = [{"content": "Which batter?"}, call("find_players", query="LG Twins"), {"content": "Here they are."}]
+    out = Coach(tools, lambda m, s: queue.pop(0)).ask("Who pitches for the LG Twins?")
+    assert out["answer"] == "Here they are." and out["corrected"]
+
+
+def test_computed_verdicts(tools):
+    from abs_assist.tools import zone_change
+    assert zone_change(2024, 2025)["summary"].startswith("the same share of the batter's height") and "lower" in zone_change(2024, 2025)["summary"]
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    chase = tools.call("batter_profile", {"batter": batter})["compared_with_league"]["chase_rate"]
+    lower, higher, n = chase["others_lower"], chase["others_higher"], chase["others"]
+    assert lower + higher <= n
+    expected = "higher than most" if lower > 0.6 * n else "lower than most" if higher > 0.6 * n else "in the middle"
+    assert chase["verdict"].startswith(expected)
+    guide = tools.call("take_guide", {"batter": batter, "balls": 3, "strikes": 1})
+    assert guide["summary"].startswith("Verdict: ")
+
+
+def test_count_and_runs_checks():
+    from abs_assist.coach import count_problems, unlabeled_runs
+    calls = [{"tool": "recommend_pitch", "args": {"balls": 0, "strikes": 2}}]
+    assert count_problems("What should he throw on 2-0?", calls)
+    assert not count_problems("What should he throw on 0-2?", calls)
+    assert not count_problems("Full count: what now?", [{"tool": "x", "args": {"balls": 3, "strikes": 2}}])
+    evidence = json.dumps({"batter_value_after_runs": 0.223, "chase_rate": 0.31})
+    assert unlabeled_runs("The slider is best at 0.223.", evidence)
+    assert not unlabeled_runs("The slider leaves him 0.223 expected runs.", evidence)
+
+
+def test_empty_player_names_are_refused(tools):
+    assert "can't be empty" in tools.call("attack_plan", {"batter": "", "balls": 0, "strikes": 2})["error"]

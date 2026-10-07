@@ -147,8 +147,8 @@ def test_bad_tool_arguments_become_a_recoverable_error(tools):
 def test_a_question_starting_with_check_is_kept(tools):
     from abs_assist.coach import Conversation
     convo = Conversation()
-    Coach(tools, scripted({"content": "Fine."})).ask("[check] is this right?", convo)
-    assert [m["content"] for m in convo.messages[1:]] == ["[check] is this right?", "Fine."]
+    Coach(tools, scripted(tool_call("find_players", query="LG Twins"), {"content": "Fine."})).ask("[check] is this right?", convo)
+    assert convo.messages[1]["content"] == "[check] is this right?" and convo.messages[-1]["content"] == "Fine."
 
 
 def test_vague_pitch_heights_are_sent_back():

@@ -45,8 +45,8 @@ SCHEMA: List[Dict[str, Any]] = [
                     "and locations in the league against him. If a pitcher is named, use recommend_pitch instead.",
      "parameters": {"batter": _param("string", "exact batter name"), "balls": _param("integer", "0-3"),
                     "strikes": _param("integer", "0-2")}},
-    {"name": "take_guide", "description": "The hitter's side: pitches this batter should take or lay off in a count "
-                                       "(he does better taking than swinging).",
+    {"name": "take_guide", "description": "The hitter's side: whether this batter should take or swing, be more or less "
+                                       "aggressive, and which pitches to lay off in a count (he does better taking than swinging).",
      "parameters": {"batter": _param("string", "exact batter name"), "balls": _param("integer", "0-3"),
                     "strikes": _param("integer", "0-2")}},
     {"name": "predict_next_pitch", "description": "Probability of each pitch type this pitcher throws next.",
@@ -54,21 +54,35 @@ SCHEMA: List[Dict[str, Any]] = [
                     "strikes": _param("integer", "0-2"), "previous_pitch": _param("string", "previous pitch type, or empty"),
                     "batter_side": _param("string", "the batter's side, R or L, or empty if unknown")}},
     {"name": "pitcher_arsenal", "description": "A pitcher's pitch types: usage, average and top speed, movement, whiff rate, "
-                                            "and what he throws next after each pitch.",
+                                            "what he throws next after each pitch, and his mix against left- and "
+                                            "right-handed batters and with two strikes (his go-to pitches).",
      "parameters": {"pitcher": _param("string", "exact pitcher name")}},
     {"name": "leaderboard", "description": "Rank players or teams by a stat (who leads, who is highest or lowest), with the league "
                                         "average. Use it for any 'who/which ... most' question instead of looking players up one by one.",
      "parameters": {"metric": _param("string", "batters/team_batting: " + ", ".join(BATTER_METRICS)
                                      + "; pitchers/team_pitching: " + ", ".join(PITCHER_METRICS)),
-                    "who": _param("string", "batters, pitchers, team_batting or team_pitching"),
+                    "who": _param("string", "batters, pitchers, team_batting (to compare teams' hitters) or team_pitching "
+                                            "(to compare teams' pitchers)"),
                     "team": _param("string", "limit players to one team, or empty for the league")}},
     {"name": "abs_rules", "description": "The KBO's published ABS zone rules, how the zone follows the batter's height, and how "
                                       "often low pitches of each type are called balls (the two-plane effect).",
      "parameters": {}},
     {"name": "strikes_lost_at_back",
-     "description": "Taken pitches in the zone at the middle of the plate but called balls at the back edge, for a team's pitchers.",
+     "description": "Taken pitches in the zone at the middle of the plate but called balls at the back edge, for one team's "
+                    "pitchers. To compare teams or pitchers, use leaderboard with strikes_lost_at_back_rate.",
      "parameters": {"team": _param("string", "team name, e.g. 'LG Twins'")}},
 ]
+
+
+def zone_change(old: int, new: int, height_cm: float = 180.0) -> Dict[str, Any]:
+    """How the zone moved between two seasons, worked out in code (shares of the batter's height)."""
+    (top0, bottom0), (top1, bottom1) = SEASON_SHARES[old], SEASON_SHARES[new]
+    size0, size1 = top0 - bottom0, top1 - bottom1
+    return {"top_moved_share_of_height": round(top1 - top0, 4), "bottom_moved_share_of_height": round(bottom1 - bottom0, 4),
+            "zone_height_share_before_after": [round(size0, 4), round(size1, 4)],
+            "summary": ("the same share of the batter's height (so the same size for any one batter)" if abs(size1 - size0) < 1e-9
+                        else "a larger share of height" if size1 > size0 else "a smaller share of height")
+                       + f", {'lower' if top1 < top0 else 'higher'} by {abs(top1 - top0) * height_cm:.1f} cm for a {height_cm:.0f} cm batter"}
 
 
 def normalize(text: str) -> str:
@@ -113,12 +127,20 @@ class Toolbox:
     def abs_rules(self) -> Dict[str, Any]:
         shares = {str(y): {"top_share_of_height": t, "bottom_share_of_height": b} for y, (t, b) in SEASON_SHARES.items()}
         return {"how_to_read": "The zone's top and bottom are fixed shares of the batter's height, so taller batters get a "
-                               "higher, taller zone. Top and bottom are checked at the middle and at the back of the plate; "
+                               "higher, taller zone; the width is the same 47.18 cm for everyone, so the shape changes too. "
+                               "Top and bottom are checked at the middle and at the back of the plate; "
                                "the sides once, at the middle. low_pitches: taken pitches in the bottom tenth of the zone at "
                                "the middle of the plate, and the share ABS called balls (it was still dropping by the back).",
-                "zone_by_season": shares, "width_cm": ZONE_WIDTH_CM, "plate_depth_cm": 43.18, "middle_to_back_cm": 21.59,
+                "zone_by_season": shares, "zone_heights_are_measured": "in cm above the ground",
+                "calls_in_this_data_use_season": 2025, "width_cm": ZONE_WIDTH_CM, "plate_depth_cm": 43.18, "middle_to_back_cm": 21.59,
                 "example_180cm_batter_2025_cm": [round(180 * SEASON_SHARES[2025][1], 1), round(180 * SEASON_SHARES[2025][0], 1)],
+                "change_2024_to_2025": zone_change(2024, 2025),
                 "low_pitches": self.league.cached("low_pitches", lambda: low_pitch_calls(self.db))}
+
+    def covers(self) -> str:
+        """What period every result describes, so an answer never has to guess."""
+        games = self.league.cached("games", lambda: self.db.execute("SELECT COUNT(DISTINCT game_id) FROM pitches").fetchone()[0])
+        return f"this season so far: all {games} games collected"
 
     def find_players(self, query: str) -> Dict[str, List[str]]:
         """Players whose name or team contains the query (% and _ are matched literally)."""
@@ -145,6 +167,8 @@ class Toolbox:
                 return f"{name} has no argument {key!r}; its arguments are {', '.join(params)}."
             if params[key]["type"] == "string" and not isinstance(value, str):
                 return f"{key} must be text."
+            if key in ("pitcher", "batter") and not value.strip():
+                return f"{key} can't be empty; give the player's name (find_players looks names up)."
         return None
 
     def _pitch_context(self, args: Dict[str, Any]) -> Any:
@@ -198,6 +222,7 @@ class Toolbox:
                     return {"error": self._not_found(column, args[column])}
                 args = {**args, column: found}
         try:
-            return self.run[name](**args)
+            out = self.run[name](**args)
+            return {**out, "data_covers": self.covers()} if isinstance(out, dict) and "error" not in out else out
         except Exception as exc:  # the model reads the error and can try again; the request never fails
             return {"error": f"{name} failed: {exc}"}
