@@ -111,3 +111,9 @@ def test_an_unreadable_model_reply_is_a_503_and_the_conversation_still_works():
     first = client.post("/api/coach", json={"question": "q1"})
     assert first.status_code == 503
     assert client.post("/api/coach", json={"question": "q2"}).json()["answer"] == "Fine."
+
+
+def test_inside_and_outside_are_not_tool_locations():
+    assert problems("Lay off a sinker that's high and outside.", RULE_FACTS)
+    assert problems("Pound him inside.", RULE_FACTS)
+    assert problems("It was called a ball, just outside the zone.", RULE_FACTS) == []

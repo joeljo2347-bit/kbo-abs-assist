@@ -4,6 +4,10 @@
     python -m evals.coach_eval packet    # writes evals/blind/packet.md + packet.jsonl (+ key.json)
     python -m evals.coach_eval score     # reads evals/blind/grades.jsonl; writes evals/blind/results.md
 
+Add `heldout` (e.g. `run heldout`) for the held-out set: ten questions written after the coach was
+last changed, never used to change it, run once and reported as they came out (evals/heldout/).
+`heldout2` is a second set, written and committed before the changes that followed the first.
+
 The questions use real names from the simulated league and include traps: data the tools don't
 have (ERA), and questions that need several lookups. The grader sees only each question, every
 tool call with its result, and the answer; no expected answers; ids are opaque and shuffled.
@@ -23,8 +27,9 @@ from abs_assist.coach import Coach, http_chat
 from abs_assist.tools import Toolbox
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "blind"
-RUNS = HERE / "coach_runs.jsonl"
+SET = sys.argv[2] if len(sys.argv) > 2 else "dev"   # dev, heldout or heldout2
+OUT = HERE / {"dev": "blind"}.get(SET, SET)
+RUNS = HERE / ("coach_runs.jsonl" if SET == "dev" else f"coach_runs_{SET}.jsonl")
 
 RUBRIC = """You are grading an AI assistant that answers baseball coaches' questions using analysis tools.
 You know nothing else about it. Grade strictly, from each record alone.
@@ -65,10 +70,46 @@ def questions(tb: Toolbox) -> List[str]:
     ]
 
 
+def heldout_questions(tb: Toolbox) -> List[str]:
+    """Other teams, other kinds of question; written before any of them was asked."""
+    ss, nc, ssg = tb.find_players("Samsung Lions"), tb.find_players("NC Dinos"), tb.find_players("SSG Landers")
+    doosan, lotte = tb.find_players("Doosan Bears"), tb.find_players("Lotte Giants")
+    return [
+        f"What does {ss['pitchers'][0]} throw most, and how hard does he throw it?",
+        f"{doosan['batters'][0]} is up with a 3-1 count against {ss['pitchers'][1]}. What should we throw?",
+        f"Is {doosan['batters'][1]} a free swinger or a patient hitter?",
+        "Which Doosan Bears hitter has the biggest ABS zone?",
+        "Why does ABS call so many low curveballs balls?",
+        f"Does {ssg['pitchers'][0]} lose more strikes at the back of the plate than most pitchers?",
+        f"What's {nc['pitchers'][0]} likely to throw on 0-2 to a left-handed hitter?",
+        f"What's {lotte['batters'][0]}'s batting average with runners in scoring position?",
+        f"Should {lotte['batters'][1]} be swinging at 2-0 pitches?",
+        "Which team's pitchers lose the most strikes at the back of the plate?",
+    ]
+
+
+def heldout2_questions(tb: Toolbox) -> List[str]:
+    """A second held-out set, written and committed before the changes made after the first one."""
+    kt, kiwoom, hanwha = tb.find_players("KT Wiz"), tb.find_players("Kiwoom Heroes"), tb.find_players("Hanwha Eagles")
+    return [
+        f"How hard does {hanwha['pitchers'][0]} throw his fastball, and what's his best secondary pitch?",
+        f"Who chases more on the Kiwoom Heroes, {kiwoom['batters'][0]} or {kiwoom['batters'][1]}?",
+        "Which KT Wiz hitter whiffs the most?",
+        f"Is {kt['pitchers'][0]}'s zone rate high or low compared with other pitchers?",
+        f"We face {hanwha['batters'][2]} with a full count. What should {kt['pitchers'][1]} throw?",
+        "How does the ABS strike zone change with a batter's height?",
+        f"What does {kiwoom['pitchers'][1]} usually throw after a slider?",
+        f"How many home runs has {kt['batters'][2]} hit?",
+        f"Should {hanwha['batters'][3]} take the first pitch?",
+        "Which team's pitchers throw the most pitches in the strike zone?",
+    ]
+
+
 def run() -> None:
     tb = Toolbox(build_store(Path("data/abs.db")))
     coach, out = Coach(tb, http_chat()), []
-    for q in questions(tb):
+    pick = {"dev": questions, "heldout": heldout_questions, "heldout2": heldout2_questions}[SET]
+    for q in pick(tb):
         r = coach.ask(q)
         out.append({"question": q, "calls": r["calls"], "answer": r["answer"], "corrected": r["corrected"]})
         print(f"- {q}\n  tools: {[c['tool'] for c in r['calls']]}\n  {r['answer'][:160]!r}")

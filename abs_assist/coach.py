@@ -105,11 +105,18 @@ _VAGUE_HEIGHT = re.compile(rf"\b{_PITCH},?(?:\s+(?:up|down|thrown|kept))?\s+(?<!
                            rf"|(?<![-\w])(?:high|low)\s+{_PITCH}\b", re.I)
 
 
+# "Inside"/"outside" as a pitch location: the tools don't know where the batter stands, so they never say it.
+# "Outside the zone" and "outside of it" are fine.
+_VAGUE_SIDE = re.compile(r"\b(?:in|out)side\b(?!\s+(?:the|of|it)\b)", re.I)
+
+
 def problems(answer: str, evidence: str) -> List[str]:
-    """What the code check sends back: numbers no tool supports, and pitch heights not in the tools' words."""
+    """What the code check sends back: numbers no tool supports, and locations not in the tools' words."""
     bad = [f"the number {v:g}" for v in unsourced(answer, evidence)]
-    return bad + [f'"{m.group(0)}" (say knee-high, belt-high or letter-high, exactly as the tool does)'
-                  for m in _VAGUE_HEIGHT.finditer(answer)]
+    bad += [f'"{m.group(0)}" (say knee-high, belt-high or letter-high, exactly as the tool does)'
+            for m in _VAGUE_HEIGHT.finditer(answer)]
+    return bad + [f'"{m.group(0)}" (say over the middle, on the edge, toward a corner or off the plate, as the tool does)'
+                  for m in _VAGUE_SIDE.finditer(answer)]
 
 
 CHECK = ("[check] Your last answer has things no tool result supports: {bad}. Rewrite your answer to the "
