@@ -1,15 +1,15 @@
-"""What the coach says when the model's answer still fails the checks after a rewrite, or never comes.
+"""What the coach fills in when the model's tool choices fall short.
 
-Everything here is computed from tool results, never from the model's text: the code-written answer
-of the tools it called, a comparison when it looked up several players, the plan for a pitcher the
-model ignored, or a lookup of the players the question names.
+A stat or split the data can't give is said plainly; a pitcher the question names gets his own plan
+when the model asked for the any-pitcher one; and the players a question names are looked up when
+the model looked nothing up.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 Call = Dict[str, Any]
 # Words in a question that name the stat a "who is higher" comparison is about.
@@ -28,42 +28,14 @@ def _result(call: Call) -> Dict[str, Any]:
     return out if isinstance(out, dict) else {}
 
 
-def comparison(question: str, calls: List[Call]) -> str:
-    """'X is higher on whiff rate (11% vs 10%).' when several profiles were looked up for one stat."""
-    metric = next((m for words, m in STAT_WORDS if re.search(words, question, re.I)), None)
-    rows = [(r.get("pitcher") or r.get("batter"), (r.get("compared_with_league") or {}).get(metric, {}).get("value"))
-            for r in map(_result, calls) if metric and r.get("compared_with_league")]
-    rows = [(n, v) for n, v in dict(rows).items() if n and v is not None]
-    if len(rows) < 2:
-        return ""
-    rows.sort(key=lambda nv: -nv[1])
-    fmt = (lambda v: f"{round(v * 100)}%") if str(metric).endswith("_rate") else (lambda v: f"{v:g}")
-    return f"{rows[0][0]} is higher on {str(metric).replace('_', ' ')} ({' vs '.join(f'{n} {fmt(v)}' for n, v in rows)})."
-
-
-def code_answer(calls: List[Call], question: str = "") -> str:
-    """The code-written answer of the latest tool that has one (of every call to it, when it was called for
-    several players), with the comparison the question asks for."""
-    counts = set(re.findall(r"\b([0-3])-([0-2])\b", question))
-    def asked(c: Call) -> bool:  # only lookups for the count the question is about
-        a = c.get("args") or {}
-        return not counts or "balls" not in a or (str(a.get("balls")), str(a.get("strikes"))) in counts
-    written = [(c["tool"], str(_result(c).get("answer"))) for c in calls if _result(c).get("answer") and asked(c)]
-    if not written:
-        return ""
-    last = written[-1][0]
-    text = " ".join(dict.fromkeys(t for tool, t in written if tool == last))
-    return f"{comparison(question, calls)} {text}".strip()
-
-
 def named(question: str, names: List[str]) -> List[str]:
     """Names in the question as whole names: 'Kim Ji-ho' is not found inside 'Kim Ji-hoon'."""
     return [n for n in names if re.search(rf"(?<![\w-]){re.escape(n)}(?![\w-])", question, re.I)]
 
 
 # Stats the data can't give: it records pitches and how plate appearances ended, not runs, bases or game state.
-UNAVAILABLE = re.compile(r"\b(?:ERA|WAR|OPS|OBP|on-base|slugging|RBIs?|runs batted|scoring position|RISP|saves?|wins?|"
-                         r"losses|innings pitched|stolen|with runners|home and away|by month)\b", re.I)
+UNAVAILABLE = re.compile(r"\b(?:ERA|WAR|RBIs?|runs batted|scoring position|RISP|saves?|wins?|losses|innings pitched|"
+                         r"stolen|with runners|home and away|by month)\b", re.I)
 
 
 def unavailable(question: str) -> str:
@@ -71,8 +43,8 @@ def unavailable(question: str) -> str:
     m = UNAVAILABLE.search(question)
     if not m:
         return ""
-    return (f"{m.group(0)} isn't available: this data records every pitch and how each plate appearance ended, "
-            "not runs, base runners or innings.")
+    return (f"{m.group(0)}: not available. This data records every pitch and how each plate appearance ended, "
+            "but not base runners, innings or game scores.")
 
 
 def lookup(question: str, tools: Any, calls: List[Call]) -> None:
@@ -90,12 +62,3 @@ def lookup(question: str, tools: Any, calls: List[Call]) -> None:
 
 def _run(tools: Any, calls: List[Call], name: str, args: Dict[str, Any]) -> None:
     calls.append({"tool": name, "args": args, "result": json.dumps(tools.call(name, args))})
-
-
-def best(question: str, calls: List[Call], tools: Any) -> Optional[str]:
-    """The code's answer after the model failed: look up what it skipped, then answer from the results."""
-    gap = unavailable(question)
-    if gap:
-        return gap
-    lookup(question, tools, calls)
-    return code_answer(calls, question) or None

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from abs_assist import visuals
 from abs_assist.api import build_store, create_app
-from abs_assist.coach import MAX_ROUNDS, RULE_FACTS, Coach, Conversation, problems
+from abs_assist.coach import Coach, Conversation
 from abs_assist.collect import ingest, open_store, validate
 from abs_assist.sim import season
 from abs_assist.tools import Toolbox
@@ -24,19 +24,6 @@ def tools():
 def call(name, **args):
     return {"content": "", "tool_calls": [{"id": "c1", "type": "function",
                                            "function": {"name": name, "arguments": json.dumps(args)}}]}
-
-
-def test_baseball_averages_are_checked_and_usage_words_are_not_heights():
-    assert problems("He hits .412 against sliders.", RULE_FACTS)
-    for fine in ("He throws his slider at a low rate.", "His curveball usage is high with two strikes.",
-                 "Under the 2025 ABS rules it's a ball."):
-        assert problems(fine, RULE_FACTS) == [], fine
-
-
-def test_a_rejected_answer_on_the_last_round_is_never_returned(tools):
-    queue = [call("find_players", query="LG Twins")] * (MAX_ROUNDS - 1) + [{"content": "He throws 162 km/h."}]
-    out = Coach(tools, lambda m, s: queue.pop(0)).ask("How hard does he throw?")
-    assert "162" not in out["answer"] and "couldn't finish" in out["answer"]
 
 
 def test_bad_argument_types_are_tool_errors_not_crashes(tools):
@@ -110,20 +97,7 @@ def test_an_unreadable_model_reply_is_a_503_and_the_conversation_still_works():
     client = TestClient(create_app(db, chat=chat))
     first = client.post("/api/coach", json={"question": "q1"})
     assert first.status_code == 503
-    assert client.post("/api/coach", json={"question": "q2"}).json()["answer"] == "Fine."
-
-
-def test_inside_and_outside_are_not_tool_locations():
-    assert problems("Lay off a sinker that's high and outside.", RULE_FACTS)
-    assert problems("Pound him inside.", RULE_FACTS)
-    assert problems("It was called a ball, just outside the zone.", RULE_FACTS) == []
-
-
-def test_a_runs_value_is_not_a_percentage():
-    from abs_assist.coach import unsourced
-    evidence = json.dumps({"gain_from_taking_runs": 0.409, "chase_rate": 0.23})
-    assert unsourced("Taking gains him 41% more runs.", evidence) == [0.41]
-    assert unsourced("Taking gains him 0.409 runs; he chases 23%.", evidence) == []
+    assert client.post("/api/coach", json={"question": "q2"}).json()["answer"].startswith("Found pitchers")
 
 
 def test_league_tools(tools):
@@ -148,12 +122,6 @@ def test_new_visuals(tools):
         assert for_calls([{"tool": name, "args": args, "result": json.dumps(tools.call(name, args))}]), name
 
 
-def test_an_answer_with_nothing_looked_up_is_sent_back_once(tools):
-    queue = [{"content": "Which batter?"}, call("find_players", query="LG Twins"), {"content": "Here they are."}]
-    out = Coach(tools, lambda m, s: queue.pop(0)).ask("Who pitches for the LG Twins?")
-    assert out["answer"] == "Here they are." and out["corrected"]
-
-
 def test_computed_verdicts(tools):
     from abs_assist.tools import zone_change
     assert zone_change(2024, 2025)["summary"].startswith("the same share of the batter's height") and "lower" in zone_change(2024, 2025)["summary"]
@@ -167,55 +135,11 @@ def test_computed_verdicts(tools):
     assert guide["summary"].startswith("Verdict: ")
 
 
-def test_count_and_runs_checks():
-    from abs_assist.coach import count_problems, unlabeled_runs
-    calls = [{"tool": "recommend_pitch", "args": {"balls": 0, "strikes": 2}}]
-    assert count_problems("What should he throw on 2-0?", calls)
-    assert not count_problems("What should he throw on 0-2?", calls)
-    assert not count_problems("Full count: what now?", [{"tool": "x", "args": {"balls": 3, "strikes": 2}}])
-    evidence = json.dumps({"batter_value_after_runs": 0.223, "chase_rate": 0.31})
-    assert unlabeled_runs("The slider is best at 0.223.", evidence)
-    assert not unlabeled_runs("The slider leaves him 0.223 expected runs.", evidence)
-
-
 def test_empty_player_names_are_refused(tools):
     assert "can't be empty" in tools.call("attack_plan", {"batter": "", "balls": 0, "strikes": 2})["error"]
 
 
-def test_team_questions_need_team_rankings():
-    from abs_assist.coach import scope_problems
-    players = [{"tool": "leaderboard", "args": {"metric": "chase_rate", "who": "batters"}}]
-    teams = [{"tool": "leaderboard", "args": {"metric": "chase_rate", "who": "team_batting"}}]
-    assert scope_problems("Which team's hitters chase the most?", players)
-    assert not scope_problems("Which team's hitters chase the most?", teams)
-    assert not scope_problems("Which KT Wiz hitter whiffs the most?", players)
-
-
-def test_take_advice_must_match_the_verdict():
-    from abs_assist.coach import stance_problems
-    guide = [{"tool": "take_guide", "result": json.dumps({"summary": "Verdict: swing at strikes, take balls. In the zone ..."})}]
-    assert stance_problems("He should take the first pitch.", guide)
-    assert not stance_problems("Swing at strikes and take the balls: he chases too much.", guide)
-    assert not stance_problems("Anything.", [])
-
-
-def test_a_twice_contradicted_verdict_is_stated_by_code(tools):
-    batter = tools.find_players("KT Wiz")["batters"][0]
-    queue = [call("take_guide", batter=batter, balls=0, strikes=0), {"content": "He should take the first pitch."},
-             {"content": "He should take the first pitch, really."}]
-    out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"Should {batter} swing at the first pitch?")
-    verdict = tools.call("take_guide", {"batter": batter, "balls": 0, "strikes": 0})["summary"]
-    expected = verdict.removeprefix("Verdict: ").split(". ")[0]
-    assert out["answer"].startswith("On 0-0: " + expected) or "take the first pitch" not in out["answer"]
-
-
-def test_markdown_does_not_hide_contradictions():
-    from abs_assist.coach import stance_problems
-    guide = [{"tool": "take_guide", "result": json.dumps({"summary": "Verdict: swing at strikes, take balls. x"})}]
-    assert stance_problems("He should **take** the first pitch; verdict: swing at strikes.", guide)
-
-
-def test_every_main_tool_writes_its_own_answer(tools):
+def test_every_main_tool_has_a_written_answer_and_a_visual(tools):
     from abs_assist.visuals import for_calls
     pitcher, batter = tools.find_players("LG Twins")["pitchers"][0], tools.find_players("KT Wiz")["batters"][0]
     for name, args in (("recommend_pitch", {"pitcher": pitcher, "batter": batter, "balls": 1, "strikes": 2}),
@@ -225,37 +149,11 @@ def test_every_main_tool_writes_its_own_answer(tools):
                        ("pitcher_arsenal", {"pitcher": pitcher}),
                        ("predict_next_pitch", {"pitcher": pitcher, "balls": 0, "strikes": 0}),
                        ("strikes_lost_at_back", {"team": "LG Twins"})):
+        from abs_assist.compose import NOTHING, answer
         result = tools.call(name, args)
-        assert result.get("answer"), name
+        written = answer("", [{"tool": name, "args": args, "result": json.dumps(result)}], tools)
+        assert written and written != NOTHING, name
         assert for_calls([{"tool": name, "args": args, "result": json.dumps(result)}]), name
-
-
-def test_a_rewrite_that_still_fails_is_replaced_by_the_code_answer(tools):
-    pitcher, batter = tools.find_players("LG Twins")["pitchers"][0], tools.find_players("KT Wiz")["batters"][0]
-    args = {"pitcher": pitcher, "batter": batter, "balls": 1, "strikes": 2}
-    queue = [call("recommend_pitch", **args), {"content": "Throw him a 97% heater."}, {"content": "Still a 97% heater."}]
-    out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"What should {pitcher} throw {batter} on 1-2?")
-    assert out["answer"] == tools.call("recommend_pitch", args)["answer"]
-
-
-def test_the_recommended_pitch_keeps_its_location():
-    from abs_assist.coach import location_problems
-    calls = [{"tool": "recommend_pitch", "result": json.dumps({"best": [{"pitch": "sinker, letter-high, on the edge"}]})}]
-    assert location_problems("Throw the sinker on the edge.", calls)
-    assert not location_problems("Throw the sinker letter‑high, on the edge.", calls)
-
-
-def test_yes_no_routing_and_team_scope_checks(tools):
-    from abs_assist.coach import routing_problems, scope_problems, yes_no_problems
-    guide = [{"tool": "take_guide", "result": "{}"}]
-    assert yes_no_problems("**Yes** - he should be patient.", guide)
-    assert not yes_no_problems("Swing at strikes, take balls.", guide)
-    pitcher = tools.find_players("LG Twins")["pitchers"][0]
-    plan = [{"tool": "attack_plan", "args": {}}]
-    assert routing_problems(f"{pitcher} vs Kim, 1-1. Plan?", plan, tools.pitchers())
-    assert not routing_problems("How do we pitch Kim on 1-1?", plan, tools.pitchers())
-    one_team = [{"tool": "strikes_lost_at_back", "args": {"team": "LG Twins"}}]
-    assert scope_problems("Which team's pitchers lose the most strikes at the back?", one_team)
 
 
 def test_step_limit_returns_what_was_looked_up(tools):
@@ -263,50 +161,3 @@ def test_step_limit_returns_what_was_looked_up(tools):
     queue = [call("pitcher_profile", pitcher=p) for p in pitchers] * 5
     out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"Who misses more bats, {pitchers[0]} or {pitchers[1]}?")
     assert pitchers[0] in out["answer"] and pitchers[1] in out["answer"]
-
-
-def test_final_round_fallbacks(tools):
-    from abs_assist import fallback
-    from abs_assist.coach import non_answer, zone_size_problems
-    rules = tools.call("abs_rules", {"batter_height_cm": 175})
-    assert rules["zone_for_this_batter_2025"]["bottom_cm"] == round(175 * 0.2704, 1) and "175 cm batter" in rules["answer"]
-    assert "error" in tools.call("abs_rules", {"batter_height_cm": 400})
-    rule_call = [{"tool": "abs_rules", "result": json.dumps(rules)}]
-    assert zone_size_problems("The 2025 zone shrank.", rule_call)
-    assert not zone_size_problems("The 2025 zone sits 1.1 cm lower.", rule_call)
-    profile = [{"tool": "pitcher_profile", "result": "{}"}]
-    assert non_answer("Who chases more, Kim Do-yun or Lee Ji-ho?", "Happy to help with that!", profile)
-    assert not non_answer("What's Kim Do-yun's ERA?", "ERA isn't available in this data.", profile)
-    pitchers = tools.find_players("LG Twins")["pitchers"][:2]
-    calls = [{"tool": "pitcher_profile", "result": json.dumps(tools.call("pitcher_profile", {"pitcher": p}))} for p in pitchers]
-    assert "is higher on whiff rate" in fallback.code_answer(calls, f"Who misses more bats, {pitchers[0]} or {pitchers[1]}?")
-    batter = tools.find_players("KT Wiz")["batters"][0]
-    plan = [{"tool": "attack_plan", "args": {"batter": batter, "balls": 1, "strikes": 1},
-             "result": json.dumps(tools.call("attack_plan", {"batter": batter, "balls": 1, "strikes": 1}))}]
-    fallback.lookup(f"{pitchers[0]} vs {batter}, 1-1?", tools, plan)
-    assert plan[-1]["tool"] == "recommend_pitch" and plan[-1]["args"]["pitcher"] == pitchers[0]
-    profile_mix = tools.call("pitcher_profile", {"pitcher": pitchers[0]})
-    assert profile_mix["each_pitch"] and profile_mix["first_pitch_of_at_bat_mix"]["pitches"] > 0
-
-
-def test_last_round_checks(tools):
-    from abs_assist import fallback
-    from abs_assist.coach import direction_problems, unavailable_problems, unit_problems, zone_size_problems
-    assert fallback.named("How many strikes does Kim Ji-hoon lose?", ["Kim Ji-ho", "Kim Ji-hoon"]) == ["Kim Ji-hoon"]
-    assert fallback.best("What's Kim Ji-hoon's ERA?", [], tools).startswith("ERA isn't available")
-    assert unavailable_problems("What's his WAR?", "He's a solid player.")
-    assert not unavailable_problems("What's his WAR?", "WAR isn't available in this data.")
-    evidence = json.dumps({"walk_rate": 0.122, "share_of_takes": 0.034})
-    assert unit_problems("He walks 12.2% of his pitches.", evidence)
-    assert unit_problems("They lose 3.4% of their strikes.", evidence)
-    assert not unit_problems("He walks 12.2% of batters faced; 3.4% of taken pitches.", evidence)
-    verdict = json.dumps({"whiff_rate": {"value": 0.099, "league_average": 0.108}})
-    assert direction_problems("His 9.9% whiff rate is above the league average.", verdict)
-    assert not direction_problems("His 9.9% whiff rate is below the league average.", verdict)
-    rules = [{"tool": "abs_rules", "result": json.dumps(tools.call("abs_rules", {}))}]
-    assert zone_size_problems("From 2024 to 2025 the zone shrinks proportionally.", rules)
-    low = tools.call("leaderboard", {"metric": "strikeout_rate", "order": "lowest"})
-    values = [r["strikeout_rate"] for r in low["ranking"]]
-    assert values == sorted(values) and low["answer"].startswith("Lowest")
-    batter = tools.find_players("KT Wiz")["batters"][0]
-    assert "gains most by taking" in tools.call("take_guide", {"batter": batter, "balls": 0, "strikes": 0})["answer"]

@@ -1,0 +1,75 @@
+"""The coach's answers, written in code from tool results: each kind of question gets the answer it asks for."""
+
+import json
+
+import pytest
+
+from abs_assist.collect import ingest, open_store
+from abs_assist.compose import NOTHING, answer
+from abs_assist.sim import season
+from abs_assist.tools import Toolbox
+
+
+@pytest.fixture(scope="module")
+def tools():
+    db = open_store()
+    ingest(db, season(60))
+    return Toolbox(db)
+
+
+def ran(tools, name, **args):
+    return {"tool": name, "args": args, "result": json.dumps(tools.call(name, args))}
+
+
+def test_a_yes_no_question_is_answered_from_where_he_ranks(tools):
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    call = ran(tools, "batter_profile", batter=batter)
+    v = json.loads(call["result"])["compared_with_league"]["home_runs"]
+    expected = "Yes." if v["others_lower"] > 0.6 * v["others"] else "No." if v["others_higher"] > 0.6 * v["others"] else "About average."
+    text = answer(f"Is {batter} a power hitter?", [call], tools)
+    assert text.startswith(expected) and "home runs" in text
+
+
+def test_a_comparison_names_who_is_lower_when_asked_less(tools):
+    a, b = tools.find_players("KT Wiz")["batters"][:2]
+    calls = [ran(tools, "batter_profile", batter=a), ran(tools, "batter_profile", batter=b)]
+    chase = {n: json.loads(c["result"])["chase_rate"] for n, c in zip((a, b), calls)}
+    text = answer(f"Who chases less, {a} or {b}?", calls, tools)
+    assert text.startswith(f"{min(chase, key=chase.get)} is lower on chase rate")
+
+
+def test_pitch_mix_splits_and_what_follows_a_pitch(tools):
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    call = ran(tools, "pitcher_arsenal", pitcher=pitcher)
+    both = answer(f"What does {pitcher} throw to left-handed hitters with two strikes?", [call], tools)
+    assert "against left-handed batters" in both and "with two strikes" in both and "no split that combines" in both
+    after = next(iter(json.loads(call["result"])["next_pitch_after"]))
+    assert answer(f"What does {pitcher} throw after a {after}?", [call], tools).startswith(f"After a {after}")
+
+
+def test_stats_the_data_does_not_have_are_said_plainly(tools):
+    assert answer("What's Kim Ji-hoon's ERA?", [], tools).startswith("ERA: not available")
+    assert answer("Who has the most RBIs?", [], tools).startswith("RBIs: not available")
+
+
+def test_team_questions_use_team_rankings_and_counts_are_matched(tools):
+    teams = ran(tools, "leaderboard", metric="walk_rate", who="team_pitching", order="lowest")
+    players = ran(tools, "leaderboard", metric="walk_rate", who="pitchers")
+    assert "among teams" in answer("Which team's pitchers walk the fewest batters?", [players, teams], tools)
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    wrong, right = ran(tools, "attack_plan", batter=batter, balls=0, strikes=2), ran(tools, "attack_plan", batter=batter, balls=2, strikes=0)
+    assert answer(f"How do we pitch {batter} on 2-0?", [wrong, right], tools).startswith("On 2-0")
+
+
+def test_rules_answer_the_height_or_the_change_asked_about(tools):
+    assert "175 cm batter" in answer("Zone for a 175 cm hitter?", [ran(tools, "abs_rules", batter_height_cm=175)], tools)
+    change = answer("How did the zone change from 2024 to 2025?", [ran(tools, "abs_rules")], tools)
+    assert "same share of the batter's height" in change
+
+
+def test_follow_ups_and_skipped_lookups(tools):
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    first = [ran(tools, "pitcher_profile", pitcher=pitcher)]
+    assert answer("Why?", [], tools, previous=first) == answer("Why?", first, tools)
+    looked_up = answer(f"Tell me about {pitcher}.", [], tools)
+    assert looked_up.startswith(pitcher) and looked_up != NOTHING

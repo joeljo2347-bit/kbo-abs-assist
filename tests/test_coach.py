@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from abs_assist.coach import Coach, unsourced
+from abs_assist.coach import Coach
 from abs_assist.collect import ingest, open_store
 from abs_assist.sim import season
 from abs_assist.tools import Toolbox
@@ -30,17 +30,6 @@ def tool_call(name, **args):
                                            "function": {"name": name, "arguments": json.dumps(args)}}]}
 
 
-def test_number_check():
-    evidence = json.dumps({"whiff_rate": 0.312, "pitches": 412, "count": "1-2"})
-    assert unsourced("Whiffs 31% of the time on 412 pitches in a 1-2 count.", evidence) == []
-    assert unsourced("Whiffs 45% of the time.", evidence) == [0.45]
-    assert unsourced("Throw it 2 times.", evidence) == []
-    assert unsourced("Whiffs 31 % of the time, or 31\u202f%.", evidence) == []
-    big = json.dumps({"taken_pitches": 10916})
-    assert unsourced("Of 10,916 taken pitches...", big) == []
-    assert unsourced("Of 10,961 taken pitches...", big) == [10961.0]
-
-
 def test_answers_from_a_tool(tools):
     pitcher = tools.db.execute("SELECT pitcher FROM pitches LIMIT 1").fetchone()[0]
     rate = tools.call("pitcher_profile", {"pitcher": pitcher})["whiff_rate"]
@@ -48,14 +37,6 @@ def test_answers_from_a_tool(tools):
                                   {"content": f"His whiff rate is {rate * 100:.1f}%."}))
     out = coach.ask(f"How often does {pitcher} get whiffs?")
     assert out["tools_used"] == ["pitcher_profile"] and not out["corrected"]
-
-
-def test_invented_numbers_are_sent_back_once(tools):
-    coach = Coach(tools, scripted({"content": "He whiffs 47% of the time."},
-                                  tool_call("find_players", query="LG Twins"),
-                                  {"content": "I need an exact name; here are LG Twins players."}))
-    out = coach.ask("How often does their ace get whiffs?")
-    assert out["corrected"] and out["tools_used"] == ["find_players"]
 
 
 def test_tool_errors_are_reported_not_raised(tools):
@@ -82,15 +63,6 @@ def test_a_follow_up_can_use_numbers_from_an_earlier_turn(tools):
     out = coach.ask("Why do you say that?", convo)
     assert not out["corrected"] and out["tools_used"] == []
     assert [m["role"] for m in convo.messages].count("user") == 2
-
-
-def test_a_rejected_answer_is_dropped_from_the_history(tools):
-    from abs_assist.coach import Conversation
-    convo = Conversation()
-    Coach(tools, scripted({"content": "About 47% of the time."}, {"content": "I don't have that number."})).ask("How often?", convo)
-    texts = [m["content"] for m in convo.messages]
-    assert "About 47% of the time." not in texts and not any(t.startswith("[check]") for t in texts)
-    assert texts[-1] == "I don't have that number."
 
 
 def test_trimming_keeps_tool_results_with_their_calls():
@@ -139,23 +111,10 @@ def test_bad_tool_arguments_become_a_recoverable_error(tools):
     broken = {"content": "", "tool_calls": [{"type": "function", "function": {"name": "find_players", "arguments": "{oops"}}]}
     convo = Conversation()
     out = Coach(tools, scripted(broken, {"content": "Sorry, try again."})).ask("Who?", convo)
-    assert out["answer"] == "Sorry, try again."
+    from abs_assist.compose import NOTHING
+    assert out["answer"] == NOTHING
     tool_msg = next(m for m in convo.messages if m["role"] == "tool")
     assert "not valid JSON" in tool_msg["content"] and tool_msg["tool_call_id"]
-
-
-def test_a_question_starting_with_check_is_kept(tools):
-    from abs_assist.coach import Conversation
-    convo = Conversation()
-    Coach(tools, scripted(tool_call("find_players", query="LG Twins"), {"content": "Fine."})).ask("[check] is this right?", convo)
-    assert convo.messages[1]["content"] == "[check] is this right?" and convo.messages[-1]["content"] == "Fine."
-
-
-def test_vague_pitch_heights_are_sent_back():
-    from abs_assist.coach import problems
-    assert problems("Throw a curveball high on the edge.", "")
-    assert problems("Avoid a high curve over the middle.", "")
-    assert not problems("Throw a curveball, belt-high, on the edge; it keeps his runs low.", "")
 
 
 def test_a_pitcher_sent_to_a_batter_tool_is_pointed_to_the_pitcher_tools(tools):

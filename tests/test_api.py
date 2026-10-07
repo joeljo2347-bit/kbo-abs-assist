@@ -42,7 +42,9 @@ def test_live_replay_never_peeks_ahead(client):
 def test_coach_conversations_continue(client):
     first = client.post("/api/coach", json={"question": "Hi"}).json()
     second = client.post("/api/coach", json={"question": "And?", "conversation_id": first["conversation_id"]}).json()
-    assert second["conversation_id"] == first["conversation_id"] and second["answer"] == "Second answer."
+    # The reply is written in code from the tools; a follow-up that calls none reuses the last turn's results.
+    assert second["conversation_id"] == first["conversation_id"] and second["answer"] == first["answer"]
+    assert first["answer"].startswith("Found pitchers")
     other = client.post("/api/coach", json={"question": "New", "conversation_id": "unknown"}).json()
     assert other["conversation_id"] != first["conversation_id"]
     assert client.post("/api/coach", json={"question": ""}).status_code == 422

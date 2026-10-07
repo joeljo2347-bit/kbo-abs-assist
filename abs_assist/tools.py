@@ -6,7 +6,6 @@ import sqlite3
 import unicodedata
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from abs_assist import answers
 from abs_assist.analyze import batter_profile, lost_at_back, pitcher_profile, rows
 from abs_assist.compare import BATTER_METRICS, PITCHER_METRICS, League, arsenal, context, leaderboard, low_pitch_calls
 from abs_assist.predict import PitchPredictor
@@ -131,7 +130,8 @@ class Toolbox:
     def batter_profile(self, batter: str) -> Dict[str, Any]:
         out = batter_profile(self.db, batter)
         line = self.league.qualified("batter").get(batter, {})
-        stats = {k: line.get(k) for k in ("batting_average", "hits", "home_runs", "strikeouts", "walks")}
+        stats = {k: line.get(k) for k in ("batting_average", "on_base_percentage", "slugging", "hits", "home_runs",
+                                          "strikeouts", "walks")}
         return out if "error" in out else {**out, **stats,
                                            "compared_with_league": context(self.league, "batter", batter, BATTER_METRICS)}
 
@@ -271,7 +271,6 @@ class Toolbox:
             out = self.run[name](**args)
             if not isinstance(out, dict) or "error" in out:
                 return out
-            answer = answers.write(name, out)
-            return {**({"answer": answer} if answer else {}), **out, "data_covers": self.covers()}
+            return {**out, "data_covers": self.covers()}
         except Exception as exc:  # the model reads the error and can try again; the request never fails
             return {"error": f"{name} failed: {exc}"}

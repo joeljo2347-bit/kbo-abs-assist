@@ -1,61 +1,41 @@
 """The AI coach: plain-language questions answered from the analysis tools.
 
-The model chooses which tools to call and explains their results. It never computes numbers
-itself: a check in code requires every number in the answer to appear in a tool result in this conversation,
-and sends an answer that invents one back once. Talks to any OpenAI-compatible chat endpoint,
-configured with MODEL_URL and MODEL_NAME.
+The language model reads the conversation and decides which tools to call, with which players,
+counts and filters. The answer the coach shows is then written in code from those results
+(abs_assist/compose.py), so every number and claim in it is one the tools returned; the model's
+own wording is never shown. Talks to any OpenAI-compatible chat endpoint, configured with
+MODEL_URL and MODEL_NAME.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import re
 import threading
 import urllib.request
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from abs_assist import fallback, visuals
+from abs_assist import compose, visuals
 from abs_assist.tools import SCHEMA, Toolbox
 
 MAX_ROUNDS, KEEP_MESSAGES = 10, 40
 SYSTEM = (
-    "You are the club's baseball strategy assistant, in an ongoing conversation with coaches and analysts.\n"
-    "- Use the conversation: follow-ups like 'and with two strikes?', 'why?' or 'what about him?' refer to "
-    "earlier turns. Reuse earlier tool results when they still answer the question; call tools for anything new. "
-    "Look players up with find_players when you don't have an exact name. When you need several players or "
-    "several facts, call all the tools you need at once in a single step.\n"
-    "- Facts and numbers come only from tool results in this conversation or the ABS rules; never estimate. "
-    "Read numbers with each result's how_to_read, and describe locations with the tools' exact words.\n"
-    "- Pick the tool for the question. How to pitch a batter: recommend_pitch when a pitcher is named, attack_plan "
-    "when none is. What a hitter should take or lay off: take_guide. What a pitcher is likely to throw: "
-    "predict_next_pitch. Speeds, pitch types and what follows a pitch: pitcher_arsenal. Player stats: pitcher_profile "
-    "or batter_profile. Who or which team is highest or lowest at anything: leaderboard. How ABS works: abs_rules.\n"
-    "- When a tool result has an 'answer' (written by code), build your reply on it: keep its pitch, its full "
-    "location, its verdict and its numbers exactly as written.\n"
-    "- Whether a number is high or low: use the tool's verdict (worked out in code) and say the value and the league "
-    "average. Never work out a direction or a count of players yourself; take it from the tool.\n"
-    "- If the question asks for a split the tools don't have (runners on base, home or away, by month), say it isn't "
-    "available; never give an overall number in its place. 'Which team' questions compare teams, not players.\n"
-    "- Never ask the coach for details the question doesn't need: what a pitcher throws doesn't need a batter, and a "
-    "batter's tendencies don't need a pitcher. If a tool returns an error, fix the call (the right kind of player, the "
-    "exact name) and call it again before answering.\n"
-    "- Don't stall. If something isn't specified, make a sensible assumption, say it in "
-    "a few words, and answer. Ask a clarifying question only when no useful answer is possible.\n"
-    "- If the tools don't have something (ERA, handedness, spin rate), say so plainly and offer what they do have.\n"
-    "- When comparing players, give each one's number and say clearly which is higher.\n"
-    "- When asked why, explain the reasoning: swing, whiff and called-strike chances, and the ABS rule that "
-    "the bottom and top are checked at both the middle and the back of the plate.\n"
-    "- The app shows the key numbers next to your answer, so never write tables or long lists. Answer in two "
-    "to four short sentences of plain baseball language: the answer first, then the one or two "
-    "numbers that matter most, written as percentages where they are chances. Don't suggest follow-up questions."
+    "You choose the analysis tools that answer a baseball coach's questions; code writes the reply from their "
+    "results, so call every tool the question needs, with exact arguments, and then reply 'done'.\n"
+    "- Follow-ups ('and with two strikes?', 'what about him?') refer to earlier turns: call the tools again with the "
+    "new count, player or filter. Look names up with find_players when unsure. Call several tools at once if needed.\n"
+    "- How to pitch a batter in a count: recommend_pitch when a pitcher is named, else attack_plan. Whether a hitter "
+    "should take, swing or be patient in a count: take_guide. What a pitcher will throw next in a count: "
+    "predict_next_pitch. His pitch types, speeds, best pitch, mix by batter side, with two strikes, on the first "
+    "pitch, or after a given pitch: pitcher_arsenal. A player's tendencies and stats, or comparing named players: "
+    "pitcher_profile or batter_profile for each. Who or which team is highest or lowest at something: leaderboard "
+    "(who=team_batting or team_pitching for teams; order=lowest for least, fewest or toughest). How the ABS zone "
+    "works, or the zone for a given height: abs_rules. Strikes lost at the back of the plate for a team: "
+    "strikes_lost_at_back.\n"
+    "- A full count is 3-2. Use the count the question gives; '0-0' is the first pitch."
 )
-# Published ABS rule numbers the coach may quote without a tool call (zone shares, widths, plate depth).
-RULE_FACTS = "55.75% 27.04% 56.35% 27.64% 47.18 43.18 2 21.59 2024 2025"
-# Numbers, including baseball-style ".412" (a dot not preceded by a digit or letter).
-_NUMBER = re.compile(r"(?<![\w,.])(?:\.\d+|(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?:[ \u00a0\u202f]?%)?")
 Chat = Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]
 
 
@@ -83,214 +63,6 @@ def _openai_tools() -> List[Dict[str, Any]]:
         for t in SCHEMA]
 
 
-def numbers(text: str) -> List[Tuple[float, bool]]:
-    """Each number as (value, is_percentage); percentages become rates (55% -> 0.55)."""
-    out = []
-    for n in _NUMBER.findall(text):
-        pct = n.endswith("%")
-        value = float(n.rstrip("%").rstrip(" \u00a0\u202f").replace(",", ""))
-        out.append((value / 100 if pct else value, pct))
-    return out
-
-
-def _supported(value: float, known: List[float]) -> bool:
-    """Allows only rounding: rates to the half percentage point, whole numbers to the nearest one,
-    other numbers to one decimal."""
-    tolerance = 0.0051 if value <= 1 else 0.5 if value == int(value) else 0.051
-    return any(abs(value - k) <= tolerance for k in known)
-
-
-# A field measured in runs: its value is never a percentage ("0.409 runs" is not "41%").
-_RUNS_FIELD = re.compile(r'"\w*runs\w*":\s*-?[\d.]+')
-
-
-def unsourced(answer: str, evidence: str) -> List[float]:
-    """Numbers in the answer that no tool result supports. Small whole numbers (counts like 1-2,
-    "two pitches") are allowed; every percentage and every other number must match a tool value,
-    and a percentage can't come from a field measured in runs."""
-    known = [v for v, _ in numbers(evidence)]
-    rates = [v for v, _ in numbers(_RUNS_FIELD.sub("", evidence))]
-    return [v for v, pct in numbers(answer)
-            if (pct or v > 3 or v != int(v)) and not _supported(v, rates if pct else known)]
-
-
-_PITCH = r"(?:fastball|sinker|slider|changeup|splitter|curveball|curve)s?"
-_PLACE_AFTER = r"(?=\s+(?:on|over|toward|towards|in|at|and|away|inside|outside|off)\b|\s*[,.;:)]|\s*$)"
-# A bare "high"/"low" used as a pitch's location ("curveball high on the edge", "a high curve"): the tools
-# only say knee-high, belt-high or letter-high. Usage wording ("his slider at a low rate") is left alone.
-_VAGUE_HEIGHT = re.compile(rf"\b{_PITCH},?(?:\s+(?:up|down|thrown|kept))?\s+(?<!-)(?:high|low){_PLACE_AFTER}"
-                           rf"|(?<![-\w])(?:high|low)\s+{_PITCH}\b", re.I)
-
-
-# "Inside"/"outside" as a pitch location: the tools don't know where the batter stands, so they never say it.
-# "Outside the zone" and "outside of it" are fine.
-_VAGUE_SIDE = re.compile(r"\b(?:in|out)side\b(?!\s+(?:the|of|it)\b)", re.I)
-
-
-def problems(answer: str, evidence: str) -> List[str]:
-    """What the code check sends back: numbers no tool supports, and locations not in the tools' words."""
-    bad = [f"the number {v:g}" for v in unsourced(answer, evidence)]
-    bad += [f'"{m.group(0)}" (say knee-high, belt-high or letter-high, exactly as the tool does)'
-            for m in _VAGUE_HEIGHT.finditer(answer)]
-    return bad + [f'"{m.group(0)}" (say over the middle, on the edge, toward a corner or off the plate, as the tool does)'
-                  for m in _VAGUE_SIDE.finditer(answer)]
-
-
-_COUNT = re.compile(r"\b([0-3])-([0-2])\b")
-
-
-def count_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """A count named in the question that the tools were asked about with a different count."""
-    named = {(int(b), int(s)) for b, s in _COUNT.findall(question)} | ({(3, 2)} if "full count" in question.lower() else set())
-    used = {(c["args"]["balls"], c["args"]["strikes"]) for c in calls
-            if isinstance(c.get("args"), dict) and isinstance(c["args"].get("balls"), int) and isinstance(c["args"].get("strikes"), int)}
-    wrong = sorted(used - named) if named and not used & named else []
-    return [f"tools called for the count {b}-{s}, but the question is about {', '.join(f'{x}-{y}' for x, y in sorted(named))}"
-            for b, s in wrong]
-
-
-_TEAM_QUESTION = re.compile(r"\b(?:which|what) teams?\b|\bteams?'s?\b.*\b(?:most|least|best|worst|highest|lowest)\b", re.I)
-
-
-def scope_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """A question comparing teams, answered without a ranking of teams (from players, or from one team)."""
-    boards = [c["args"].get("who", "batters") for c in calls if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)]
-    if _TEAM_QUESTION.search(question) and calls and not any(str(w).startswith("team") for w in boards):
-        return ["a team question answered from a ranking of players (call leaderboard with who=team_batting or team_pitching)"]
-    return []
-
-
-# What an answer must say, and must not say, for each take-guide verdict.
-_STANCE = {
-    "swing at strikes, take balls": (r"\bswing\b.*\b(?:strikes?|in the zone)\b|\b(?:strikes?|in the zone)\b.*\bswing",
-                                     r"\b(?:should|to) take (?:the|it|first|every|all)\b|\btake rather than swing"),
-    "be patient: take most pitches": (r"\b(?:take|patient)", r"\bswing at (?:everything|most)"),
-    "be aggressive: swing at most pitches": (r"\b(?:swing|aggressive)", r"\b(?:should|to) take (?:the|it|first|every|all)\b"),
-    "be selective": (r"\bselective|\bswing\b.*\btake\b|\btake\b.*\bswing\b", r"$^"),
-}
-
-
-def yes_no_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """A bare yes or no on a take-or-swing question: the verdict is never a yes or a no, so say it instead."""
-    if any(c["tool"] == "take_guide" for c in calls) and re.match(r"\W*(?:yes|no)\b", re.sub(r"[*_`]", "", answer), re.I):
-        return ["an answer that opens with yes or no (open with the take guide's verdict instead)"]
-    return []
-
-
-def routing_problems(question: str, calls: List[Dict[str, Any]], pitchers: List[str]) -> List[str]:
-    """A pitcher named in the question, but a plan for 'any pitcher' (attack_plan) used instead of his own."""
-    named = [p for p in pitchers if p.lower() in question.lower()]
-    tools_used = {c["tool"] for c in calls}
-    if named and "attack_plan" in tools_used and "recommend_pitch" not in tools_used:
-        return [f"a plan that ignores the pitcher named ({named[0]}): call recommend_pitch with him"]
-    return []
-
-
-def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """An answer whose take-or-swing advice doesn't match the verdict the take guide worked out."""
-    for c in reversed(calls):
-        if c["tool"] == "take_guide":
-            verdict = str(json.loads(c["result"]).get("summary", "")).removeprefix("Verdict: ").split(". ")[0]
-            must, never = _STANCE.get(verdict, (r"", r"$^"))
-            plain = re.sub(r"[*_`]", "", answer)  # "should **take**" is still "should take"
-            if not re.search(must, plain, re.I | re.S) or re.search(never, plain, re.I):
-                return [f"advice that doesn't match the take guide's verdict ('{verdict}'): say that verdict"]
-            return []
-    return []
-
-
-_SIZE_WORDS = re.compile(r"\b(?:shr[aiu]nk\w*|proportional\w*|smaller|narrower|bigger|larger|grew|wider|shorter|taller)\b", re.I)
-_UNAVAILABLE = re.compile(r"not (?:available|tracked|in the data|recorded)|isn't (?:available|tracked|recorded)"
-                          r"|doesn't (?:have|track)|don't (?:have|track)|no data", re.I)
-
-
-def zone_size_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """Saying the zone changed size between seasons, when the rules say it kept the same share of height."""
-    rules = next((c for c in calls if c["tool"] == "abs_rules"), None)
-    same = rules and "same share" in str(json.loads(rules["result"]).get("change_2024_to_2025", {}).get("summary", ""))
-    if same and re.search(r"2024|2025|season", answer) and _SIZE_WORDS.search(answer):
-        return ["a change in the zone's size between seasons (the rules say it kept the same share of height and moved lower)"]
-    return []
-
-
-def non_answer(question: str, answer: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """A reply with no number, no name from the question and no 'not available', after tools returned data."""
-    names = re.findall(r"\b[A-Z][a-z]+ [A-Z][a-z]+(?:-[a-z]+)?\b", question)
-    looked = any(c["tool"] != "find_players" and "error" not in c.get("result", "") for c in calls)
-    if looked and not re.search(r"\d", answer) and not any(n in answer for n in names) and not _UNAVAILABLE.search(answer):
-        return ["an answer that doesn't use what the tools returned"]
-    return []
-
-
-# Field -> what its value is a share of; an answer must not call it a share of something else.
-_UNITS = {"walk_rate": ("batters faced or plate appearances", r"pitches"),
-          "strikeout_rate": ("batters faced or plate appearances", r"pitches"),
-          "share_of_takes": ("taken pitches", r"strikes")}
-
-
-def unit_problems(answer: str, evidence: str) -> List[str]:
-    """A rate described as a share of the wrong thing ('12% of his pitches' for a walk rate)."""
-    bad = []
-    for key, (right, wrong) in _UNITS.items():
-        for value in re.findall(rf'"{key}":\s*([\d.]+)', evidence):
-            pct = round(float(value) * 100, 1)
-            for shown in {f"{pct:g}", f"{round(pct):g}"}:
-                if re.search(rf"{re.escape(shown)}\s?%[^.]{{0,25}}\b(?:of )?(?:his |their |all )?{wrong}\b", answer):
-                    bad.append(f"{shown}% called a share of {wrong} (it is per {right})")
-    return sorted(set(bad))
-
-
-def direction_problems(answer: str, evidence: str) -> List[str]:
-    """A player's value called above (or below) the league average when it is the other side of it."""
-    bad = []
-    for value, avg in re.findall(r'"value":\s*([\d.]+),\s*"league_average":\s*([\d.]+)', evidence):
-        v, a = float(value), float(avg)
-        for shown in {f"{round(v * 100, 1):g}", f"{round(v * 100):g}"} if v <= 1 else {f"{v:g}"}:
-            near = re.search(rf"{re.escape(shown)}[^.]{{0,40}}\b(above|higher than|below|lower than)\b[^.]{{0,25}}average", answer)
-            if near and (near.group(1) in ("above", "higher than")) != (v > a):
-                bad.append(f"{shown} called {near.group(1)} the league average ({a:g}); it is on the other side")
-    return bad
-
-
-def unavailable_problems(question: str, answer: str) -> List[str]:
-    """A question about a stat the data can't give, answered without saying so."""
-    if fallback.UNAVAILABLE.search(question) and not _UNAVAILABLE.search(answer):
-        return ["a stat or split the data doesn't have: say plainly it isn't available"]
-    return []
-
-
-def location_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """The recommended pitch named without its full location (height and side, as the tool gives them)."""
-    plain = re.sub(r"[*_`]", "", answer).replace("\u2011", "-").lower()
-    for c in reversed(calls):
-        if c["tool"] in ("recommend_pitch", "attack_plan"):
-            best = (json.loads(c["result"]).get("best") or [{}])[0].get("pitch", "")
-            kind, *where = [w.strip() for w in best.split(",")]
-            if kind and kind in plain and not all(w in plain for w in where):
-                return [f"the recommended {kind} without its full location ({', '.join(where)})"]
-            return []
-    return []
-
-
-def unlabeled_runs(answer: str, evidence: str) -> List[str]:
-    """A number that only a runs field supports, written without saying it's in runs."""
-    runs = [v for v, _ in numbers(" ".join(_RUNS_FIELD.findall(evidence)))]
-    other = [v for v, _ in numbers(_RUNS_FIELD.sub("", evidence))]
-    bad = []
-    for m in _NUMBER.finditer(answer):
-        value = float(m.group(0).replace(",", "").rstrip("% \u00a0\u202f"))
-        if not m.group(0).endswith("%") and _supported(value, runs) and not _supported(value, other) \
-                and "run" not in answer[m.end():m.end() + 30].lower():
-            bad.append(f"{m.group(0)} (say it is expected runs)")
-    return bad
-
-
-UNLOOKED = "an answer with nothing looked up (call the tool that answers the question; don't ask the coach for details it doesn't need)"
-CHECK = ("[check] Your last answer has things no tool result supports: {bad}. Rewrite your answer to the "
-         "coach's last question using only numbers and locations from tool results (call a tool if you need one). "
-         "Reply with the rewritten answer only, addressed to the coach; don't mention this check.")
-
-
 @dataclass
 class Conversation:
     """One coach's conversation: the message history and every tool result so far. `lock` keeps two
@@ -298,6 +70,7 @@ class Conversation:
     messages: List[Dict[str, Any]] = field(default_factory=lambda: [{"role": "system", "content": SYSTEM}])
     evidence: str = ""
     question_at: int = 1
+    last_calls: List[Dict[str, Any]] = field(default_factory=list)  # the tools behind the last answer, for follow-ups
     lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def trimmed(self) -> List[Dict[str, Any]]:
@@ -378,42 +151,18 @@ class Coach:
             convo.evidence, convo.question_at = saved[1], saved[2]
             raise
 
-    def _problems(self, question: str, answer: str, calls: List[Dict[str, Any]], convo: Conversation) -> List[str]:
-        """Everything the checks in code send back about one answer."""
-        return (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
-                + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
-                + yes_no_problems(answer, calls) + location_problems(answer, calls) + zone_size_problems(answer, calls)
-                + non_answer(question, answer, calls) + unit_problems(answer, convo.evidence)
-                + direction_problems(answer, convo.evidence) + unavailable_problems(question, answer)
-                + routing_problems(question, calls, self.tools.pitchers()) + ([] if convo.evidence else [UNLOOKED]))
-
     def _ask(self, question: str, convo: Conversation) -> Dict[str, Any]:
         convo.messages.append({"role": "user", "content": question})
         convo.question_at = len(convo.messages) - 1
         calls: List[Dict[str, Any]] = []
-        final, check = "", None
         for _ in range(MAX_ROUNDS):
-            answer = self._step(convo, calls) or ""
-            if not answer:
-                continue
-            bad = self._problems(question, answer, calls, convo)
-            if not bad or check is not None:
-                final = answer if not (check and bad) else (fallback.best(question, calls, self.tools) or answer)
-                break
-            check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
-            convo.messages.append(check)
-        _drop_rejected(convo, check)  # a rejected answer is never returned, even if no rewrite came in time
-        final = final or fallback.best(question, calls, self.tools) or "I couldn't finish that within the step limit."
-        return {"answer": final, "corrected": check is not None,
-                "tools_used": [c["tool"] for c in calls], "calls": calls, "visuals": visuals.for_calls(calls),
-                "conversation": convo}
-
-
-def _drop_rejected(convo: Conversation, check: Optional[Dict[str, Any]]) -> None:
-    """Remove a rejected answer and the check that sent it back, so later turns never build on it.
-    The check is found by identity, so a coach's own question that happens to start with "[check]"
-    is never touched."""
-    for i, m in enumerate(convo.messages):
-        if m is check:
-            del convo.messages[i - 1:i + 1]
-            return
+            if self._step(convo, calls) is not None:
+                break  # the model has finished choosing tools
+        final = compose.answer(question, calls, self.tools, convo.last_calls)
+        if convo.messages[-1]["role"] == "assistant" and not convo.messages[-1].get("tool_calls"):
+            convo.messages[-1]["content"] = final  # later turns see what the coach was actually told
+        else:
+            convo.messages.append({"role": "assistant", "content": final})
+        convo.last_calls = calls or convo.last_calls
+        return {"answer": final, "corrected": False, "tools_used": [c["tool"] for c in calls], "calls": calls,
+                "visuals": visuals.for_calls(calls), "conversation": convo}

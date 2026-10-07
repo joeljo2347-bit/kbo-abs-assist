@@ -19,7 +19,8 @@ BATTER_METRICS = {
     "whiff_rate": "share of his swings that missed",
     "zone_height_cm": "height of his ABS zone (top minus bottom), cm",
     "batting_average": "hits per at-bat", "home_runs": "home runs", "strikeout_rate": "strikeouts per plate appearance",
-    "walk_rate": "walks per plate appearance",
+    "walk_rate": "walks per plate appearance", "on_base_percentage": "times on base (hits and walks) per plate appearance",
+    "slugging": "total bases per at-bat",
 }
 PITCHER_METRICS = {
     "in_zone_rate": "share of his pitches inside the ABS zone", "chase_rate": "share of his pitches outside the zone that were swung at",
@@ -34,7 +35,8 @@ HIGH_MEANS = {
     ("batter", "whiff_rate"): "misses more often when he swings",
     ("batter", "zone_height_cm"): "a taller ABS zone", ("batter", "batting_average"): "a better hitter for average",
     ("batter", "home_runs"): "more home runs", ("batter", "strikeout_rate"): "strikes out more often",
-    ("batter", "walk_rate"): "walks more often",
+    ("batter", "walk_rate"): "walks more often", ("batter", "on_base_percentage"): "gets on base more often",
+    ("batter", "slugging"): "hits for more power",
     ("pitcher", "in_zone_rate"): "throws more pitches in the zone", ("pitcher", "chase_rate"): "gets more chases",
     ("pitcher", "whiff_rate"): "gets more swings and misses", ("pitcher", "fastball_kmh"): "throws harder",
     ("pitcher", "strikes_lost_at_back_rate"): "loses more strikes at the back of the plate",
@@ -58,7 +60,14 @@ def batter_line(data: List[Row]) -> Dict[str, Any]:
             "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in data), sum(r["swing"] for r in data)),
             "batting_average": _ratio(hits, len(pas) - walks), "hits": hits, "home_runs": pas.count("home_run"),
             "strikeouts": pas.count("strikeout"), "walks": walks,
-            "strikeout_rate": _ratio(pas.count("strikeout"), len(pas)), "walk_rate": _ratio(walks, len(pas))}
+            "strikeout_rate": _ratio(pas.count("strikeout"), len(pas)), "walk_rate": _ratio(walks, len(pas)),
+            "on_base_percentage": _ratio(hits + walks, len(pas)), "slugging": _slugging(pas)}
+
+
+def _slugging(pas: List[str]) -> Optional[float]:
+    """Total bases per at-bat (the simulation has no triples or hit-by-pitches)."""
+    bases = pas.count("single") + 2 * pas.count("double") + 4 * pas.count("home_run")
+    return _ratio(bases, len(pas) - pas.count("walk"))
 
 
 def pitcher_line(data: List[Row]) -> Dict[str, Any]:
