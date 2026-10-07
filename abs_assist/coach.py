@@ -29,8 +29,11 @@ SYSTEM = (
     "several facts, call all the tools you need at once in a single step.\n"
     "- Facts and numbers come only from tool results in this conversation or the ABS rules; never estimate. "
     "Read numbers with each result's how_to_read, and describe locations with the tools' exact words.\n"
-    "- Pick the tool for the side asked about. How to pitch a batter: recommend_pitch when a pitcher is named, "
-    "attack_plan when none is. What a hitter should take or lay off: take_guide. Pitchers' stats: pitcher_profile.\n"
+    "- Pick the tool for the question. How to pitch a batter: recommend_pitch when a pitcher is named, attack_plan "
+    "when none is. What a hitter should take or lay off: take_guide. What a pitcher is likely to throw: "
+    "predict_next_pitch. Speeds, pitch types and what follows a pitch: pitcher_arsenal. Player stats: pitcher_profile "
+    "or batter_profile. Who or which team is highest or lowest at anything: leaderboard. How ABS works: abs_rules.\n"
+    "- Whether a number is high or low: compare it with the league average the tool gives, and say both.\n"
     "- Don't stall. If something isn't specified, make a sensible assumption, say it in "
     "a few words, and answer. Ask a clarifying question only when no useful answer is possible.\n"
     "- If the tools don't have something (ERA, handedness, spin rate), say so plainly and offer what they do have.\n"
@@ -89,12 +92,18 @@ def _supported(value: float, known: List[float]) -> bool:
     return any(abs(value - k) <= tolerance for k in known)
 
 
+# A field measured in runs: its value is never a percentage ("0.409 runs" is not "41%").
+_RUNS_FIELD = re.compile(r'"\w*runs\w*":\s*-?[\d.]+')
+
+
 def unsourced(answer: str, evidence: str) -> List[float]:
     """Numbers in the answer that no tool result supports. Small whole numbers (counts like 1-2,
-    "two pitches") are allowed; every percentage and every other number must match a tool value."""
+    "two pitches") are allowed; every percentage and every other number must match a tool value,
+    and a percentage can't come from a field measured in runs."""
     known = [v for v, _ in numbers(evidence)]
+    rates = [v for v, _ in numbers(_RUNS_FIELD.sub("", evidence))]
     return [v for v, pct in numbers(answer)
-            if (pct or v > 3 or v != int(v)) and not _supported(v, known)]
+            if (pct or v > 3 or v != int(v)) and not _supported(v, rates if pct else known)]
 
 
 _PITCH = r"(?:fastball|sinker|slider|changeup|splitter|curveball|curve)s?"

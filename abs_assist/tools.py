@@ -7,8 +7,10 @@ import unicodedata
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from abs_assist.analyze import batter_profile, lost_at_back, pitcher_profile, rows
+from abs_assist.compare import BATTER_METRICS, PITCHER_METRICS, League, arsenal, context, leaderboard, low_pitch_calls
 from abs_assist.predict import PitchPredictor
 from abs_assist.strategy import Strategy
+from abs_assist.zone import SEASON_SHARES, ZONE_WIDTH_CM
 
 
 def train_predictor(db: sqlite3.Connection) -> PitchPredictor:
@@ -29,9 +31,11 @@ def _param(kind: str, about: str) -> Dict[str, str]:
 SCHEMA: List[Dict[str, Any]] = [
     {"name": "find_players", "description": "Find pitchers and batters by (part of) a name or a team name.",
      "parameters": {"query": _param("string", "name or team, e.g. 'LG Twins' or 'Kim'")}},
-    {"name": "pitcher_profile", "description": "A pitcher's mix, zone rate, chase and whiff rates, strikes lost at the back of the plate.",
+    {"name": "pitcher_profile", "description": "A pitcher's mix, zone rate, chase and whiff rates, fastball speed, strikes lost at the "
+                                            "back of the plate, each with the league average and his rank.",
      "parameters": {"pitcher": _param("string", "exact pitcher name")}},
-    {"name": "batter_profile", "description": "A batter's height, ABS zone in cm, swing, chase and whiff rates.",
+    {"name": "batter_profile", "description": "A batter's height, ABS zone, swing, chase and whiff rates, batting average, home runs, "
+                                           "strikeouts and walks, each rate with the league average and his rank.",
      "parameters": {"batter": _param("string", "exact batter name")}},
     {"name": "recommend_pitch", "description": "Best and worst pitch types and locations for this pitcher against this batter in a count.",
      "parameters": {"pitcher": _param("string", "exact pitcher name"), "batter": _param("string", "exact batter name"),
@@ -49,6 +53,18 @@ SCHEMA: List[Dict[str, Any]] = [
      "parameters": {"pitcher": _param("string", "exact pitcher name"), "balls": _param("integer", "0-3"),
                     "strikes": _param("integer", "0-2"), "previous_pitch": _param("string", "previous pitch type, or empty"),
                     "batter_side": _param("string", "the batter's side, R or L, or empty if unknown")}},
+    {"name": "pitcher_arsenal", "description": "A pitcher's pitch types: usage, average and top speed, movement, whiff rate, "
+                                            "and what he throws next after each pitch.",
+     "parameters": {"pitcher": _param("string", "exact pitcher name")}},
+    {"name": "leaderboard", "description": "Rank players or teams by a stat (who leads, who is highest or lowest), with the league "
+                                        "average. Use it for any 'who/which ... most' question instead of looking players up one by one.",
+     "parameters": {"metric": _param("string", "batters/team_batting: " + ", ".join(BATTER_METRICS)
+                                     + "; pitchers/team_pitching: " + ", ".join(PITCHER_METRICS)),
+                    "who": _param("string", "batters, pitchers, team_batting or team_pitching"),
+                    "team": _param("string", "limit players to one team, or empty for the league")}},
+    {"name": "abs_rules", "description": "The KBO's published ABS zone rules, how the zone follows the batter's height, and how "
+                                      "often low pitches of each type are called balls (the two-plane effect).",
+     "parameters": {}},
     {"name": "strikes_lost_at_back",
      "description": "Taken pitches in the zone at the middle of the plate but called balls at the back edge, for a team's pitchers.",
      "parameters": {"team": _param("string", "team name, e.g. 'LG Twins'")}},
@@ -64,11 +80,14 @@ def normalize(text: str) -> str:
 
 class Toolbox:
     def __init__(self, db: sqlite3.Connection):
-        self.db, self.strategy, self.predictor = db, Strategy(db), train_predictor(db)
+        self.db, self.strategy, self.predictor, self.league = db, Strategy(db), train_predictor(db), League(db)
         self.run: Dict[str, Callable[..., Any]] = {
             "find_players": self.find_players,
-            "pitcher_profile": lambda pitcher: pitcher_profile(db, pitcher),
-            "batter_profile": lambda batter: batter_profile(db, batter),
+            "pitcher_profile": self.pitcher_profile,
+            "batter_profile": self.batter_profile,
+            "pitcher_arsenal": lambda pitcher: arsenal(db, pitcher),
+            "leaderboard": lambda metric, who="batters", team="": leaderboard(self.league, metric, who, team),
+            "abs_rules": self.abs_rules,
             "recommend_pitch": lambda pitcher, batter, balls, strikes: self.strategy.recommend(pitcher, batter, int(balls), int(strikes)),
             "take_guide": lambda batter, balls, strikes: self.strategy.take_guide(batter, int(balls), int(strikes)),
             "attack_plan": lambda batter, balls, strikes: self.strategy.attack_plan(batter, int(balls), int(strikes)),
@@ -77,6 +96,29 @@ class Toolbox:
                     pitcher, int(balls), int(strikes), previous_pitch, batter_side).items()},
             "strikes_lost_at_back": lambda team="": lost_at_back(rows(self.db, pitcher_team=team or None)),
         }
+
+    def pitcher_profile(self, pitcher: str) -> Dict[str, Any]:
+        out = pitcher_profile(self.db, pitcher)
+        line = self.league.qualified("pitcher").get(pitcher, {})
+        return out if "error" in out else {**out, "fastball_kmh": line.get("fastball_kmh"),
+                                           "compared_with_league": context(self.league, "pitcher", pitcher, PITCHER_METRICS)}
+
+    def batter_profile(self, batter: str) -> Dict[str, Any]:
+        out = batter_profile(self.db, batter)
+        line = self.league.qualified("batter").get(batter, {})
+        stats = {k: line.get(k) for k in ("batting_average", "hits", "home_runs", "strikeouts", "walks")}
+        return out if "error" in out else {**out, **stats,
+                                           "compared_with_league": context(self.league, "batter", batter, BATTER_METRICS)}
+
+    def abs_rules(self) -> Dict[str, Any]:
+        shares = {str(y): {"top_share_of_height": t, "bottom_share_of_height": b} for y, (t, b) in SEASON_SHARES.items()}
+        return {"how_to_read": "The zone's top and bottom are fixed shares of the batter's height, so taller batters get a "
+                               "higher, taller zone. Top and bottom are checked at the middle and at the back of the plate; "
+                               "the sides once, at the middle. low_pitches: taken pitches in the bottom tenth of the zone at "
+                               "the middle of the plate, and the share ABS called balls (it was still dropping by the back).",
+                "zone_by_season": shares, "width_cm": ZONE_WIDTH_CM, "plate_depth_cm": 43.18, "middle_to_back_cm": 21.59,
+                "example_180cm_batter_2025_cm": [round(180 * SEASON_SHARES[2025][1], 1), round(180 * SEASON_SHARES[2025][0], 1)],
+                "low_pitches": self.league.cached("low_pitches", lambda: low_pitch_calls(self.db))}
 
     def find_players(self, query: str) -> Dict[str, List[str]]:
         """Players whose name or team contains the query (% and _ are matched literally)."""

@@ -72,10 +72,16 @@ def lost(r: Dict[str, Any]) -> List[Block]:
         _bars("Strikes lost, by pitch type", r["by_pitch_type"], lambda v: f"{int(v)}")]
 
 
+def _league(r: Dict[str, Any], metric: str) -> str:
+    """'league 26%' for a tile's note, when the profile carries the league average."""
+    avg = (r.get("compared_with_league") or {}).get(metric, {}).get("league_average")
+    return "" if avg is None else f"league {pct(avg)}"
+
+
 def pitcher(r: Dict[str, Any]) -> List[Block]:
-    tiles = [{"label": "Pitches in the zone", "value": pct(r["in_zone_rate"])},
-             {"label": "Batters chase", "value": pct(r["chase_rate"])},
-             {"label": "Swings that miss", "value": pct(r["whiff_rate"])}]
+    tiles = [{"label": "Pitches in the zone", "value": pct(r["in_zone_rate"]), "note": _league(r, "in_zone_rate")},
+             {"label": "Batters chase", "value": pct(r["chase_rate"]), "note": _league(r, "chase_rate")},
+             {"label": "Swings that miss", "value": pct(r["whiff_rate"]), "note": _league(r, "whiff_rate")}]
     return [{"type": "tiles", "items": tiles}, _bars(f"{r['pitcher']}: how often he throws each pitch", r["pitch_mix"], pct)]
 
 
@@ -83,9 +89,35 @@ def batter(r: Dict[str, Any]) -> List[Block]:
     low, top = r["zone_cm"]
     return [{"type": "tiles", "items": [
         {"label": "His ABS zone", "value": f"{low:.0f}–{top:.0f} cm", "note": f"{r['height_cm']:.0f} cm tall"},
-        {"label": "Swings at strikes", "value": pct(r["zone_swing_rate"])},
-        {"label": "Chases balls", "value": pct(r["chase_rate"])},
-        {"label": "Swings that miss", "value": pct(r["whiff_rate"])}]}]
+        {"label": "Swings at strikes", "value": pct(r["zone_swing_rate"]), "note": _league(r, "zone_swing_rate")},
+        {"label": "Chases balls", "value": pct(r["chase_rate"]), "note": _league(r, "chase_rate")},
+        {"label": "Swings that miss", "value": pct(r["whiff_rate"]), "note": _league(r, "whiff_rate")}]}]
+
+
+def _stat(metric: str) -> Callable[[float], str]:
+    if metric == "batting_average":
+        return lambda v: f"{v:.3f}".lstrip("0")
+    return pct if metric.endswith("_rate") else lambda v: f"{v:g}"
+
+
+def board(r: Dict[str, Any]) -> List[Block]:
+    metric = next(k for k in r["ranking"][0] if k not in ("name", "pitches"))
+    fmt = _stat(metric)
+    data = {row["name"]: row[metric] for row in r["ranking"]}
+    avg = r.get("league_average")
+    note = [{"type": "note", "text": f"League average: {fmt(avg)}. {r['qualified']} qualified."}] if avg is not None else []
+    return [_bars(f"{metric.replace('_', ' ')}, highest first", data, fmt), *note]
+
+
+def pitch_arsenal(r: Dict[str, Any]) -> List[Block]:
+    rows = [[a["pitch"], pct(a["usage"]), f"{a['avg_kmh']} km/h", pct(a["whiff_rate"])] for a in r["arsenal"]]
+    return [{"type": "table", "title": f"{r['pitcher']}'s pitches, most used first",
+             "columns": ["Pitch", "Usage", "Average speed", "Swings that miss"], "rows": rows, "bold": []}]
+
+
+def rules(r: Dict[str, Any]) -> List[Block]:
+    low = {k: v["called_ball_rate"] for k, v in r["low_pitches"].items() if v["called_ball_rate"] is not None}
+    return [_bars("Low pitches in the zone at the middle, called balls by ABS", low, pct)]
 
 
 def take_guide(r: Dict[str, Any]) -> List[Block]:
@@ -114,7 +146,8 @@ def compare(tool: str, results: List[Dict[str, Any]]) -> Block:
 
 BUILDERS: Dict[str, Callable[[Any], List[Block]]] = {
     "recommend_pitch": recommend, "attack_plan": recommend, "predict_next_pitch": predict, "strikes_lost_at_back": lost,
-    "pitcher_profile": pitcher, "batter_profile": batter, "take_guide": take_guide}
+    "pitcher_profile": pitcher, "batter_profile": batter, "take_guide": take_guide,
+    "leaderboard": board, "pitcher_arsenal": pitch_arsenal, "abs_rules": rules}
 
 
 def for_calls(calls: List[Dict[str, Any]]) -> List[Block]:
@@ -131,5 +164,5 @@ def for_calls(calls: List[Dict[str, Any]]) -> List[Block]:
                 return [compare(tool, results)]
         last = [c["tool"] for c in calls if c["tool"] in found]
         return BUILDERS[last[-1]](found[last[-1]][-1]) if last else []
-    except (KeyError, IndexError, TypeError, ValueError):
+    except (KeyError, IndexError, TypeError, ValueError, StopIteration):
         return []  # a visual must never break an answer

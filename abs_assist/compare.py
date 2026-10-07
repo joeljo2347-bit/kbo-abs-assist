@@ -1,0 +1,165 @@
+"""Context for any number: league averages, rankings across players or teams, a pitcher's arsenal.
+
+Every player and team is summarized in one pass over the data, cached until the data changes.
+Rates are 0-1. Batting stats (AVG, HR, K, BB) come from how each plate appearance ended.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
+from abs_assist.analyze import HALF, RULES, Row, height_in_zone, lost_at_back, rows
+
+HITS = {"single", "double", "home_run"}
+BATTER_METRICS = {
+    "chase_rate": "share of pitches outside the zone he swung at",
+    "zone_swing_rate": "share of in-zone pitches he swung at",
+    "whiff_rate": "share of his swings that missed",
+    "zone_height_cm": "height of his ABS zone (top minus bottom), cm",
+    "batting_average": "hits per at-bat", "home_runs": "home runs", "strikeout_rate": "strikeouts per plate appearance",
+    "walk_rate": "walks per plate appearance",
+}
+PITCHER_METRICS = {
+    "in_zone_rate": "share of his pitches inside the ABS zone", "chase_rate": "share of his pitches outside the zone that were swung at",
+    "whiff_rate": "share of swings against him that missed", "fastball_kmh": "average fastball speed, km/h",
+    "strikes_lost_at_back_rate": "share of his taken pitches that were strikes at the middle of the plate but balls at the back",
+}
+QUALIFY = 0.3  # qualified: at least this share of the median player's pitches (scales with how much data there is)
+
+
+def _ratio(part: float, whole: float) -> Optional[float]:
+    return round(part / whole, 3) if whole else None
+
+
+def batter_line(data: List[Row]) -> Dict[str, Any]:
+    zone, out = [r for r in data if r["abs_strike"]], [r for r in data if not r["abs_strike"]]
+    pas = [r["pa_result"] for r in data if r["pa_result"]]
+    walks, hits = pas.count("walk"), sum(p in HITS for p in pas)
+    bottom, top = RULES.bounds(data[0]["batter_height_cm"])
+    return {"pitches": len(data), "plate_appearances": len(pas), "zone_height_cm": round(top - bottom, 1),
+            "zone_swing_rate": _ratio(sum(r["swing"] for r in zone), len(zone)),
+            "chase_rate": _ratio(sum(r["swing"] for r in out), len(out)),
+            "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in data), sum(r["swing"] for r in data)),
+            "batting_average": _ratio(hits, len(pas) - walks), "hits": hits, "home_runs": pas.count("home_run"),
+            "strikeouts": pas.count("strikeout"), "walks": walks,
+            "strikeout_rate": _ratio(pas.count("strikeout"), len(pas)), "walk_rate": _ratio(walks, len(pas))}
+
+
+def pitcher_line(data: List[Row]) -> Dict[str, Any]:
+    zone, swings = [r for r in data if r["abs_strike"]], [r for r in data if r["swing"]]
+    fastballs = [r["kmh"] for r in data if r["pitch_type"] == "fastball"]
+    lost = lost_at_back(data)
+    return {"pitches": len(data), "in_zone_rate": _ratio(len(zone), len(data)),
+            "chase_rate": _ratio(sum(not r["abs_strike"] for r in swings), len(data) - len(zone)),
+            "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in swings), len(swings)),
+            "fastball_kmh": round(sum(fastballs) / len(fastballs), 1) if fastballs else None,
+            "strikes_lost_at_back": lost["strikes_lost"], "strikes_lost_at_back_rate": lost["share_of_takes"]}
+
+
+class League:
+    """Every batter, pitcher and team summarized once; rebuilt when the number of pitches changes."""
+
+    def __init__(self, db: sqlite3.Connection):
+        self.db, self.size = db, -1
+        self.lines: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def _fresh(self) -> Dict[str, Dict[str, Any]]:
+        size = self.db.execute("SELECT COUNT(*) FROM pitches").fetchone()[0]
+        if size != self.size:
+            groups: Dict[Tuple[str, str], List[Row]] = defaultdict(list)
+            for r in rows(self.db):
+                for key in (("batter", r["batter"]), ("pitcher", r["pitcher"]),
+                            ("team_batting", r["batter_team"]), ("team_pitching", r["pitcher_team"])):
+                    groups[key].append(r)
+            line = {"batter": batter_line, "pitcher": pitcher_line, "team_batting": batter_line, "team_pitching": pitcher_line}
+            self.lines = {kind: {name: line[kind](d) for (k, name), d in groups.items() if k == kind} for kind in line}
+            self.size = size
+        return self.lines
+
+    def cached(self, key: str, build: Any) -> Any:
+        """Any other league-wide result, rebuilt with the rest when the data changes."""
+        lines = self._fresh()
+        if key not in lines:
+            lines[key] = build()
+        return lines[key]
+
+    def qualified(self, kind: str) -> Dict[str, Dict[str, Any]]:
+        pool = self._fresh()[kind]
+        counts = sorted(v["pitches"] for v in pool.values())
+        floor = QUALIFY * counts[len(counts) // 2] if counts else 0
+        return {n: v for n, v in pool.items() if v["pitches"] >= floor}
+
+    def average(self, kind: str, metric: str) -> Optional[float]:
+        values = [v[metric] for v in self.qualified(kind).values() if v.get(metric) is not None]
+        return round(sum(values) / len(values), 3) if values else None
+
+    def rank(self, kind: str, name: str, metric: str) -> Optional[str]:
+        """'3 of 90 (1 = highest)' among qualified players or teams."""
+        pool = self.qualified(kind)
+        if name not in pool or pool[name].get(metric) is None:
+            return None
+        values = sorted((v[metric] for v in pool.values() if v.get(metric) is not None), reverse=True)
+        return f"{values.index(pool[name][metric]) + 1} of {len(values)} (1 = highest)"
+
+
+def context(league: League, kind: str, name: str, metrics: Dict[str, str]) -> Dict[str, Any]:
+    """League average and rank for each metric of one player."""
+    return {m: {"league_average": league.average(kind, m), "rank": league.rank(kind, name, m)} for m in metrics}
+
+
+def leaderboard(league: League, metric: str, who: str = "batters", team: str = "", top: int = 10) -> Dict[str, Any]:
+    """Players (or teams) ranked by a metric, highest first."""
+    kind = {"batters": "batter", "pitchers": "pitcher", "team_batting": "team_batting", "team_pitching": "team_pitching"}.get(who)
+    metrics = BATTER_METRICS if kind in ("batter", "team_batting") else PITCHER_METRICS
+    if kind is None or metric not in metrics:
+        return {"error": f"who must be batters, pitchers, team_batting or team_pitching; metric one of {', '.join(metrics)}."}
+    pool = league.qualified(kind)
+    if team and kind in ("batter", "pitcher"):
+        side = "batter_team" if kind == "batter" else "pitcher_team"
+        names = {n for (n,) in league.db.execute(f"SELECT DISTINCT {kind} FROM pitches WHERE {side} = ?", (team,))}
+        pool = {n: v for n, v in pool.items() if n in names}
+    ranked = sorted((n for n in pool if pool[n].get(metric) is not None), key=lambda n: -pool[n][metric])
+    return {"how_to_read": f"{metric}: {metrics[metric]}. Highest first; everyone qualified is counted.",
+            "who": who, "team": team or "all", "qualified": len(ranked), "league_average": league.average(kind, metric),
+            "ranking": [{"name": n, metric: pool[n][metric], "pitches": pool[n]["pitches"]} for n in ranked[:top]]}
+
+
+def arsenal(db: sqlite3.Connection, pitcher: str) -> Dict[str, Any]:
+    """Each pitch type: usage, speed, movement and whiffs, plus what he throws after each pitch."""
+    data = sorted(rows(db, pitcher=pitcher), key=lambda r: r["id"])
+    if not data:
+        return {"error": f"No pitches for {pitcher}."}
+    by_type: Dict[str, List[Row]] = defaultdict(list)
+    after: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for prev, r in zip([None, *data], data):
+        by_type[r["pitch_type"]].append(r)
+        if prev and prev["game_id"] == r["game_id"] and prev["batter"] == r["batter"]:
+            after[prev["pitch_type"]][r["pitch_type"]] += 1
+    return {"how_to_read": "usage and whiff_rate are 0-1; kmh is speed; hb_cm/ivb_cm are horizontal and vertical break. "
+                           "next_pitch_after: within the same at-bat, the share of each pitch he threw next.",
+            "pitcher": pitcher, "throws": data[0]["pitcher_throws"], "pitches": len(data),
+            "arsenal": [_pitch_line(k, v, len(data)) for k, v in sorted(by_type.items(), key=lambda kv: -len(kv[1]))],
+            "next_pitch_after": {k: {n: _ratio(c, sum(v.values())) for n, c in sorted(v.items(), key=lambda kv: -kv[1])}
+                                 for k, v in after.items()}}
+
+
+def _pitch_line(kind: str, data: List[Row], total: int) -> Dict[str, Any]:
+    swings = [r for r in data if r["swing"]]
+    def avg(key: str) -> Optional[float]:
+        known = [r[key] for r in data if r[key] is not None]
+        return round(sum(known) / len(known), 1) if known else None
+    return {"pitch": kind, "usage": _ratio(len(data), total), "avg_kmh": avg("kmh"), "max_kmh": max(r["kmh"] for r in data),
+            "hb_cm": avg("hb_cm"), "ivb_cm": avg("ivb_cm"),
+            "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in swings), len(swings))}
+
+
+def low_pitch_calls(db: sqlite3.Connection) -> Dict[str, Any]:
+    """Of taken pitches in the bottom tenth of the zone at the middle of the plate: share called balls, by type."""
+    taken = [r for r in rows(db) if not r["swing"] and 0 <= height_in_zone(r) <= 0.1 and abs(r["x_cm"]) <= HALF]
+    by_type: Dict[str, List[Row]] = defaultdict(list)
+    for r in taken:
+        by_type[r["pitch_type"]].append(r)
+    return {k: {"taken": len(v), "called_ball_rate": _ratio(sum(not r["abs_strike"] for r in v), len(v))}
+            for k, v in sorted(by_type.items())}

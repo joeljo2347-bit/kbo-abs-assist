@@ -117,3 +117,32 @@ def test_inside_and_outside_are_not_tool_locations():
     assert problems("Lay off a sinker that's high and outside.", RULE_FACTS)
     assert problems("Pound him inside.", RULE_FACTS)
     assert problems("It was called a ball, just outside the zone.", RULE_FACTS) == []
+
+
+def test_a_runs_value_is_not_a_percentage():
+    from abs_assist.coach import unsourced
+    evidence = json.dumps({"gain_from_taking_runs": 0.409, "chase_rate": 0.23})
+    assert unsourced("Taking gains him 41% more runs.", evidence) == [0.41]
+    assert unsourced("Taking gains him 0.409 runs; he chases 23%.", evidence) == []
+
+
+def test_league_tools(tools):
+    board = tools.call("leaderboard", {"metric": "whiff_rate", "who": "batters", "team": "KT Wiz"})
+    values = [r["whiff_rate"] for r in board["ranking"]]
+    assert values == sorted(values, reverse=True) and board["league_average"] is not None
+    teams = tools.call("leaderboard", {"metric": "in_zone_rate", "who": "team_pitching"})
+    assert teams["qualified"] == 10
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    profile = tools.call("pitcher_profile", {"pitcher": pitcher})
+    assert profile["fastball_kmh"] and "rank" in profile["compared_with_league"]["whiff_rate"]
+    arsenal = tools.call("pitcher_arsenal", {"pitcher": pitcher})
+    assert arsenal["arsenal"][0]["usage"] >= arsenal["arsenal"][-1]["usage"] and arsenal["next_pitch_after"]
+    assert "curveball" in tools.call("abs_rules", {})["low_pitches"]
+    assert "error" in tools.call("leaderboard", {"metric": "era", "who": "pitchers"})
+
+
+def test_new_visuals(tools):
+    from abs_assist.visuals import for_calls
+    for name, args in (("leaderboard", {"metric": "batting_average"}), ("abs_rules", {}),
+                       ("pitcher_arsenal", {"pitcher": tools.find_players("LG Twins")["pitchers"][0]})):
+        assert for_calls([{"tool": name, "args": args, "result": json.dumps(tools.call(name, args))}]), name
