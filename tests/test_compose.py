@@ -96,3 +96,20 @@ def test_pitch_questions_and_mixed_verdicts(tools):
     batter = tools.find_players("KT Wiz")["batters"][1]
     text = answer(f"Is {batter} a free swinger or a patient hitter?", [ran(tools, "batter_profile", batter=batter)], tools)
     assert text.split(":")[0] in ("A patient hitter", "A free swinger") or text.startswith("In between")
+
+
+def test_rankings_fit_the_question(tools):
+    players = ran(tools, "leaderboard", metric="chase_rate", who="batters")
+    teams = answer("Which team's hitters chase the most?", [players], tools)
+    assert teams.startswith("Highest chase rate among teams")
+    fewest = answer("Which pitchers walk the fewest batters?", [ran(tools, "leaderboard", metric="walk_rate", who="pitchers")], tools)
+    assert fewest.startswith("Lowest walk rate")
+
+
+def test_hitter_traits_use_his_profile_and_zone_rate_is_not_the_rules(tools):
+    batter, pitcher = tools.find_players("KT Wiz")["batters"][2], tools.find_players("LG Twins")["pitchers"][1]
+    guide = [ran(tools, "take_guide", batter=batter, balls=0, strikes=0)]
+    assert "chase rate" in answer(f"Is {batter} a patient hitter?", guide, tools)
+    zone = answer(f"Is {pitcher}'s zone rate high or low?", [ran(tools, "pitcher_profile", pitcher=pitcher)], tools)
+    assert "share of pitches in the zone" in zone and not zone.startswith(("Yes", "No"))
+    assert answer("Is Lee Do-yun better than average at laying off pitches?", [], tools) is not None

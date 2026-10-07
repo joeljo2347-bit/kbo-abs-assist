@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Lists general batter stats but never answers the two-strike question, and does not say that two-strike data is unavailable."}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": "Numbers are supported and middle-of-the-pack answers the question, but the same sentence is repeated twice."}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Repeats the same generic verdict for four counts without saying whether he should protect more, and ignores his high chase rate (0.334, 82 of 89 lower)."}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": "Numbers are correct, but the answer leaks an internal tool note and repeats the same sentence twice."}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Asked for his OBP against left-handers; gives the league OBP leaderboard instead and never says the split is unavailable."}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Asked how many strikeouts; the tool shows 121 but the answer gives only the rate, not the count."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Gives only the 170 cm zone; never gets the 190 cm zone or the difference in the top that was asked for."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

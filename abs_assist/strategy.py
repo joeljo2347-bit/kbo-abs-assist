@@ -191,4 +191,5 @@ class Strategy:
                                "0-1 that it's called a strike. summary: the overall answer, worked out in code.",
                 "count": f"{b}-{s}", "summary": take_summary(better, [k for k, _ in rated]),
                 "take": [{"pitch": describe(k), "gain_from_taking_runs": round(g, 3), "p_called_strike": round(ev["p_called_strike"], 3)}
-                         for g, k, ev in better[:top]]}
+                         for g, k, ev in better[:top]],
+                "swing_at": [{"pitch": describe(k), "gain_from_swinging_runs": round(-g, 3)} for g, k, _ in gains[::-1][:3] if g < 0]}

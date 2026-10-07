@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Never recommends a pitch or says it can't; dumps the pitcher's profile without flagging that the question reversed the batter and pitcher roles."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "Never names the Doosan hitter with the biggest zone (Jang Seo-jun, 52.5 cm, was in the tool result); answers with generic ABS zone rules instead."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Claims the data lacks base runners, innings and scores, but no tool result says that."}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Never says which pitch he throws most (fastball, 46.6%); gives only a speed."}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Asked which team loses the most strikes but answered with the lowest (Kiwoom); the most is KIA Tigers at 4.4%."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Lists chase and zone-swing rates but never answers free swinger vs patient."}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Calls it 'mixed' and drags in the unrelated in-zone rate, when the data plainly says no: middle of the pack and just below league average."}

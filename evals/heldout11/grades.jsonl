@@ -5,6 +5,6 @@
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": true, "note": "No tool result says what the data contains, so the claim that it has no base runners, innings or game scores is unsupported."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

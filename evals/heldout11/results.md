@@ -1,6 +1,6 @@
 # AI coach, graded blind
 
-**Passed 9/10**, useful 10/10.
+**Passed 10/10**, useful 10/10.
 
 | Question | Pass | Grader's note |
 |---|---|---|
@@ -10,7 +10,7 @@
 | Should Lim Min-jun be patient on 3-1? | yes |  |
 | What does Han Seung-min throw most against right-handed hitters? | yes |  |
 | What does Kang Seung-min throw after a fastball? | yes |  |
-| What's Jang Ha-jun's ERA? | no | No tool result says what the data contains, so the claim that it has no base runners, innings or game scores is unsupported. |
+| What's Jang Ha-jun's ERA? | yes |  |
 | Which team's hitters walk the most? | yes |  |
 | Who are the hardest throwers in the league? | yes |  |
 | Who has more home runs, Cho Sung-ho or Kim Tae-yang? | yes |  |

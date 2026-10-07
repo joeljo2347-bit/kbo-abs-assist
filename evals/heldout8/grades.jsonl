@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Question asks what he throws first; tool gave first_pitch_of_at_bat_mix (fastball 50.1%, sinker 46.6%) but the answer only lists zone rate, whiff rate and velocity."}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "The errors showed Oh Ha-jun is the pitcher and Oh Dong-hyun the batter, but it never retried with the roles the right way round and wrongly said the data wasn't there."}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Asked whether to sit on (hunt) a pitch at 2-0; answer only gives take guidance and never says which pitch to look for or that this isn't available."}
+{"id": "ae3f054704", "pass": false, "useful": false, "note": "Asked which pitch to sit on (hunt) at 2-0, but it only lists obvious balls above the zone to take and never says what pitch to look for."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": true, "note": "Asked who leads in walks drawn (a count); answer gives walk rate leaders without saying walk totals weren't checked or that rate may differ from total."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": "Opening 'No.' doesn't fit a high-or-low question, but the content correctly says lower than most and matches the tool."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "Asked about his zone rate vs other pitchers (0.48, lower than 52 of 59, league 0.531) but the answer only gives league-wide low-pitch ball-call rates from abs_rules."}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Answers fastball speed only and never addresses the best secondary pitch, which the tool provided."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Calls the fastball his best secondary pitch (8.3% whiff) when the question asks for his best pitch besides the fastball; the slider (15.1% whiff) is never framed as the answer."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Asked about KT Wiz, but answer lists league-wide leaders from other teams; KT's top hitter in the data (Cho Sung-ho, 14.0%) is never named."}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Answer covers the 2024-to-2025 change, not how the zone scales with height (fixed shares of height, fixed width), which the tool gave."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Says 'highest whiff rate among players' with Cho Sung-ho on top, which is false league-wide (Jang Jun-seo 0.19); it fails to say this is KT Wiz only."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

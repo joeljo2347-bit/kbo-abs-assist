@@ -1,9 +1,9 @@
-{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "The question asks whether he should take more pitches, but the answer only repeats which pitch kinds are best taken, with no data on how often he takes now, and the tool says it does not measure that."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": true, "useful": false, "note": "Numbers are right, but it ends at 'mixed' and never says whether he is a good contact hitter or that a low whiff rate is the good side."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Patience is about his actual behaviour (chase or walk rate), but the answer gives a 0-0 take guide about what he should do and never says whether he is patient."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}

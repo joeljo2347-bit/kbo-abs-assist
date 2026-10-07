@@ -40,6 +40,8 @@ HITTER_SPLIT = re.compile(r"\b(?:batting average|average|on-base|obp|slugging|ho
 def unavailable(question: str) -> str:
     """'ERA: not available in this data.' when the question asks for a stat or split the data can't give."""
     m = UNAVAILABLE.search(question)
+    if m and re.match(r"(?i)with runners|scoring position|risp", m.group(0)):
+        return "Results with runners on base aren't available in this data."
     if m:
         return f"{m.group(0)}: not available in this data."
     return "That split of a hitter's results isn't available in this data." if HITTER_SPLIT.search(question) else ""
@@ -89,7 +91,8 @@ def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
         for h in heights:
             if h not in made and float(h) not in made:
                 _run(tools, calls, "abs_rules", {"batter_height_cm": h})
-    elif re.search(r"\babs\b|\bzone\b|strike zone", q) and "abs_rules" not in used and not named(question, tools.batters()):
+    elif re.search(r"\babs\b|\bzone\b(?! rate)|strike zone", q) and "abs_rules" not in used and not named(question, tools.batters()) \
+            and not named(question, tools.pitchers()):
         _run(tools, calls, "abs_rules", {})
 
 
@@ -108,7 +111,10 @@ def _named_players(question: str, tools: Any, calls: List[Call]) -> None:
 def _plans(question: str, tools: Any, calls: List[Call]) -> None:
     """A count with a batter (and maybe a pitcher) named, but no pitch plan or take guide looked up: look one up."""
     batters, pitchers = named(question, tools.batters()), named(question, tools.pitchers())
-    if not batters or any(c["tool"] in COUNT_TOOLS for c in calls):
+    trait = r"protect|patient|disciplin|aggressive|free.?swing|contact hitter|power hitter"
+    if batters and re.search(trait, question, re.I) and not any(c["tool"] == "batter_profile" for c in calls):
+        _run(tools, calls, "batter_profile", {"batter": batters[0]})
+    if not batters or any(c["tool"] in COUNT_TOOLS and "error" not in _result(c) for c in calls):
         return
     stance = re.search(r"\b(?:take|swing|protect|patient|aggressive|lay off|sit on)\b", question, re.I)
     counts = _counts(question) or ([(0, 2), (1, 2), (2, 2), (3, 2)] if re.search(r"two strikes", question, re.I) else [])
@@ -119,6 +125,21 @@ def _plans(question: str, tools: Any, calls: List[Call]) -> None:
             _run(tools, calls, "recommend_pitch", {"pitcher": pitchers[0], "batter": batters[0], "balls": b, "strikes": s})
         else:
             _run(tools, calls, "attack_plan", {"batter": batters[0], "balls": b, "strikes": s})
+
+
+def _board_fit(tools: Any, calls: List[Call], question: str) -> None:
+    """A team question ranked players, or a 'most' question ranked lowest first (or the reverse): rank it right."""
+    board = next((c for c in reversed(calls) if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)), None)
+    if not board:
+        return
+    a = dict(board["args"])
+    if re.search(r"\bwhich teams?\b|\bteams?'s?\b", question, re.I) and not str(a.get("who", "")).startswith("team"):
+        a["who"], a["team"] = ("team_batting" if re.search(r"hitter|batter|offen", question, re.I) else "team_pitching"), ""
+    low = re.search(r"\b(?:least|fewest|lowest|smallest|toughest to strike|hardest to strike)\b", question, re.I)
+    high = re.search(r"\b(?:most|highest|biggest|largest|hardest throwers?|best)\b", question, re.I)
+    a["order"] = "lowest" if low else "highest" if high else a.get("order", "highest")
+    if a != board["args"]:
+        _run(tools, calls, "leaderboard", a)
 
 
 def _count_metric(tools: Any, calls: List[Call], question: str) -> None:
@@ -137,6 +158,7 @@ def lookup(question: str, tools: Any, calls: List[Call]) -> None:
     _plans(question, tools, calls)
     _right_count(question, tools, calls)
     _count_metric(tools, calls, question)
+    _board_fit(tools, calls, question)
     _team_filter(question, tools, calls)
     _skipped_tool(question, tools, calls)
     _named_players(question, tools, calls)
