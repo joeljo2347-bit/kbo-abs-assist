@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "Says to avoid any splitter, but the tool only flagged splitters above the zone."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "No tool was called, so the claim that zone-size data is unavailable is unsupported by any tool result."}
+{"id": "1a841f217c", "pass": false, "useful": true, "note": "'Avoid any splitter or pitches above the zone' overgeneralizes the tool, which only flagged two specific splitters above the zone."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Gives overall stats instead of the RISP average and never says RISP data isn't available."}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Answer is truncated mid-sentence and its description of what the data records is not shown in any tool result."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Asked which team loses the most; the assistant queried only LG Twins and never named or compared teams."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Calls him a free swinger even though his chase rate is below most hitters and he walks more than most, which points to a patient hitter."}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "The answer describes batter Kim Ji-ho and ignores Kim Ji-hoon's strikes-lost-at-back rate, which was middle of the pack."}
+{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Calls him a free swinger despite a below-average chase rate and above-average walk rate, which point to patience."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "The 4.7% / 7679 pitches belongs to Cho Ji-hoon (KIA); Kim Ji-hoon is not in the tool result."}

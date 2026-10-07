@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Calls pitches 'above the zone' in-zone pitches and rounds the splitter's 0.352 run gain up to 'about 0.40'."}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "First-pitch fastball share is 39.9% but is given as 'roughly 39%', and the overall figure is shown as both 40% and 39.5%."}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Never answers the slugging question or says slugging isn't available; it just repeats the profile summary."}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Says the 9.9% whiff rate is above the 10.8% league average when it is below, so the 'not a strong contact hitter' verdict rests on a misread."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Ignores the left-handed-hitter condition without saying that combined split isn't available, and claims the splitter has the most whiffs 'in that situation' with no data for that situation."}
+{"id": "3622d4a516", "pass": true, "useful": false, "note": "Verdict is supported but gives no pitch-specific guidance (which pitches to take), so it is thin for a coach."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Overgeneralizes the 'avoid' advice to any splitter or above-zone pitch when the tool named only specific above-zone curveball and splitter locations."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Copies the profile summary without answering whether he is a good contact hitter."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Presents the overall two-strike mix as the mix vs left-handers with two strikes; the tool gave no combined split."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Reads the walk rate (walks per batter faced) as '12% of their pitches are walks'."}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

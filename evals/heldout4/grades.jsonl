@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "The tool gave no split by batter hand, but the answer presents the overall 37% changeup usage as his mix against right-handers."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Calls the walk rate a share of pitches (it is per plate appearance) and says 'lower than most' when the tool's verdict is middle of the pack."}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Calls the walk rate a share of his pitches rather than of plate appearances, and says he walks fewer than most when the tool says middle of the pack."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": true, "note": "Calls the counts 'pitches he's likely to see', but the tool says it compares kinds of pitch and does not weight them by how often they come."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

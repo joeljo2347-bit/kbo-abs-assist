@@ -132,36 +132,33 @@ is told to fail anything in doubt. It checks that every number and claim is supp
 result and that the answer addresses the question.
 
 The honest number is the score on questions the coach has never been tuned on. Each held-out set
-was written and committed before the changes that followed it, run once, and then reported as it
-came out:
+was written and committed before the changes that followed it, run once, and reported as it came out:
 
-| Held-out set | Run when it was new | Passed |
+| Held-out set | Run when it was new, after | Passed |
 |---|---|---|
-| [1](evals/heldout-before/results.md) | after tuning on the original ten questions | 2/10 |
-| [2](evals/heldout2-before/results.md) | after adding leaderboards, league averages and the arsenal | 3/10 |
-| [3](evals/heldout3-before/results.md) | after readable ranks, data periods and pitch roles | 4/10 |
-| [4](evals/heldout4-first-run/results.md) | after verdicts worked out in code (above or below most, take or swing) | 6/10 |
-| [5](evals/heldout5/results.md) | after count and runs checks, splits, strikeout and walk rates | 6/10 |
-| [6](evals/heldout6/results.md) | after team-ranking and take-or-swing checks in code | **5/10** |
+| [1](evals/heldout-before/results.md) | tuning on the original ten questions | 2/10 |
+| [2](evals/heldout2-before/results.md) | leaderboards, league averages, the arsenal | 3/10 |
+| [3](evals/heldout3-before/results.md) | readable ranks, data periods, pitch roles | 4/10 |
+| [4](evals/heldout4-first-run/results.md) | verdicts worked out in code (above or below most, take or swing) | 6/10 |
+| [5](evals/heldout5-first-run/results.md) | count and runs checks, splits, strikeout and walk rates | 6/10 |
+| [6](evals/heldout6-first-run/results.md) | team-ranking and take-or-swing checks | 5/10 |
+| [7](evals/heldout7-first-run/results.md) | a one-sentence answer written by code for every main tool | 8/10 |
+| [8](evals/heldout8-first-run/results.md) | yes/no, named-pitcher and team-scope checks | 6/10 |
+| [9](evals/heldout9-first-run/results.md) | fallbacks computed from tool results | 5/10 |
+| [10](evals/heldout10-first-run/results.md) | unit, direction and unavailable-stat checks | 3/10 |
 
-On new questions the coach has climbed from 2/10 to about 5-6/10 and has now levelled off there. The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
-as overfit. The fixes since then are general: the model talks, and code decides anything that can
-be computed (whether a player is above or below most of the league, whether to take or swing, how
-the zone moved between seasons), checks that every number comes from a tool, that the count asked
-about is the count looked up, and that runs are never passed off as percentages.
+The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
+as overfit. The code-side fixes were worth it up to about set 4; since then new questions score
+between 3 and 8 out of 10 with no trend, and all eleven sets rerun on the current code pass
+**61 of 110** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ... [10](evals/heldout10/results.md)).
+The same set moves by two or three points between runs, so single-set differences are noise.
 
-All six sets rerun on the current code: [original](evals/blind/results.md) 7,
-[1](evals/heldout/results.md) 7, [2](evals/heldout2/results.md) 7, [3](evals/heldout3/results.md) 6,
-[4](evals/heldout4/results.md) 5, [5](evals/heldout5/results.md) 6, so **38 of 60**. The same set can move
-by two between runs (set 3 scored 8 on one run and 6 on the next), so differences of a point or two
-are noise. With the model's reasoning set to medium instead of low, set 5 scored
-[7/10](evals/heldout5-medium-reasoning/results.md) (all ten useful) at about 10 s per answer instead of 6.
-
-What still fails is the model, not the data: it sometimes contradicts a verdict the tool computed
-("take the first pitch" when the tool says swing at strikes), answers a team question from a
-ranking of players, or fills a split the tools don't have with an overall number. The figures shown
-beside each answer come straight from the tools, so the numbers a coach sees are right even when
-the sentence isn't.
+**The limit is the language model, not the data or the checks.** Every check in code does what it
+was written for, and every number on the card beside an answer comes straight from the tools. But a
+small local model still writes sentences that overstate ("avoid any splitter" when the tool flagged one
+location), invert a comparison, or pad an answer with a claim no tool made, and each new check only
+moves those mistakes somewhere else. With its reasoning set to medium instead of low, set 5 scored
+[7/10](evals/heldout5-medium-reasoning/results.md) instead of 6 at about 10 s per answer instead of 6.
 
 ## Run it
 
