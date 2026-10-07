@@ -126,24 +126,41 @@ Velocity alone is a weak fatigue signal: starters come out about 15 pitches afte
 tire, before the drop (about 1 km/h) clears normal pitch-to-pitch noise. The alert is tuned to
 rarely cry wolf; catching fatigue earlier needs more than velocity (command, spin, release).
 
-**AI coach, graded blind**: ten realistic questions, including one the data can't answer (ERA) and
-one that needs several lookups. A separate grader saw only each question, every tool call with its
-result, and the answer, with no expected answers.
+**AI coach, graded blind.** A separate grader, new for every run and told nothing about the project,
+sees each question, every tool call with its result, and the answer, with no expected answers, and
+is told to fail anything in doubt. It checks that every number and claim is supported by a tool
+result and that the answer addresses the question.
 
-| Round | What changed | Passed |
+The honest number is the score on questions the coach has never been tuned on. Each held-out set
+was written and committed before the changes that followed it, run once, and then reported as it
+came out:
+
+| Held-out set | Run when it was new | Passed |
 |---|---|---|
-| [1](evals/blind-round1/results.md) | first version | 5/10 |
-| [2](evals/blind-round2/results.md) | tolerant name lookup; every tool explains its fields | 8/10 |
-| [3](evals/blind-round3/results.md) | conversations, shorter answers, calibrated league | 8/10 |
-| [4](evals/blind-round4/results.md) | a league-wide attack plan when no pitcher is named; locations checked in code | 6/10 |
-| [5](evals/blind-round5/results.md) | each question routed to the right side's tool; tools say when a name is the other kind of player | 9/10 |
-| [6](evals/blind/results.md) | fixes from an independent code review (stricter checks, safer failures); rerun to confirm | **9/10** |
+| [1](evals/heldout-before/results.md) | after tuning on the original ten questions | 2/10 |
+| [2](evals/heldout2-before/results.md) | after adding leaderboards, league averages and the arsenal | 3/10 |
+| [3](evals/heldout3-before/results.md) | after readable ranks, data periods and pitch roles | 4/10 |
+| [4](evals/heldout4-first-run/results.md) | after verdicts worked out in code (above or below most, take or swing) | 6/10 |
+| [5](evals/heldout5/results.md) | after count and runs checks, splits, strikeout and walk rates | **6/10** |
 
-Round 4 went backwards: the new "no pitcher, use the attack plan" rule pulled the model onto that
-tool for hitter-side questions too. Round 5 fixed the cause rather than the questions. The same ten
-questions are used every round, so treat the later scores as progress on known failure types,
-not a fresh test. Still failing: the hitter-side "what to lay off" question, where the answer
-describes the tool's above-the-zone pitches in its own words ("high and outside").
+The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
+as overfit. The fixes since then are general: the model talks, and code decides anything that can
+be computed (whether a player is above or below most of the league, whether to take or swing, how
+the zone moved between seasons), checks that every number comes from a tool, that the count asked
+about is the count looked up, and that runs are never passed off as percentages.
+
+All six sets rerun on the current code: [original](evals/blind/results.md) 7,
+[1](evals/heldout/results.md) 7, [2](evals/heldout2/results.md) 7, [3](evals/heldout3/results.md) 6,
+[4](evals/heldout4/results.md) 5, [5](evals/heldout5/results.md) 6, so **38 of 60**. The same set can move
+by two between runs (set 3 scored 8 on one run and 6 on the next), so differences of a point or two
+are noise. With the model's reasoning set to medium instead of low, set 5 scored
+[7/10](evals/heldout5-medium-reasoning/results.md) (all ten useful) at about 10 s per answer instead of 6.
+
+What still fails is the model, not the data: it sometimes contradicts a verdict the tool computed
+("take the first pitch" when the tool says swing at strikes), answers a team question from a
+ranking of players, or fills a split the tools don't have with an overall number. The figures shown
+beside each answer come straight from the tools, so the numbers a coach sees are right even when
+the sentence isn't.
 
 ## Run it
 
@@ -155,7 +172,8 @@ open http://localhost:8000
 ```
 
 The AI coach needs a chat model at an OpenAI-compatible endpoint: set `MODEL_URL` (e.g.
-`http://localhost:8080/v1`) and `MODEL_NAME`. I use a self-hosted open-weight model. Everything else
+`http://localhost:8080/v1`) and `MODEL_NAME`; `MODEL_REASONING=medium` trades speed for a little accuracy
+(default `low`). I use a self-hosted open-weight model. Everything else
 runs without one. Docker: `docker build -t kbo-abs-assist . && docker run -p 8000:8000 kbo-abs-assist`
 (add `-e MODEL_URL=... -e MODEL_NAME=...` for the coach).
 
@@ -164,6 +182,7 @@ python -m evals.calibrate           # fit the league to the KBO totals
 python -m evals.predict_eval        # next-pitch prediction
 python -m evals.live_eval           # fatigue alerts, dev vs held-out season
 python -m evals.coach_eval run      # coach answers (needs the model), then packet / score
+python -m evals.coach_eval run heldout5   # a held-out set (heldout, heldout2 ... heldout5)
 ```
 
 ## Design decisions

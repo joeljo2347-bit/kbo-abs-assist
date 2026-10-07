@@ -180,3 +180,36 @@ def test_count_and_runs_checks():
 
 def test_empty_player_names_are_refused(tools):
     assert "can't be empty" in tools.call("attack_plan", {"batter": "", "balls": 0, "strikes": 2})["error"]
+
+
+def test_team_questions_need_team_rankings():
+    from abs_assist.coach import scope_problems
+    players = [{"tool": "leaderboard", "args": {"metric": "chase_rate", "who": "batters"}}]
+    teams = [{"tool": "leaderboard", "args": {"metric": "chase_rate", "who": "team_batting"}}]
+    assert scope_problems("Which team's hitters chase the most?", players)
+    assert not scope_problems("Which team's hitters chase the most?", teams)
+    assert not scope_problems("Which KT Wiz hitter whiffs the most?", players)
+
+
+def test_take_advice_must_match_the_verdict():
+    from abs_assist.coach import stance_problems
+    guide = [{"tool": "take_guide", "result": json.dumps({"summary": "Verdict: swing at strikes, take balls. In the zone ..."})}]
+    assert stance_problems("He should take the first pitch.", guide)
+    assert not stance_problems("Swing at strikes and take the balls: he chases too much.", guide)
+    assert not stance_problems("Anything.", [])
+
+
+def test_a_twice_contradicted_verdict_is_stated_by_code(tools):
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    queue = [call("take_guide", batter=batter, balls=0, strikes=0), {"content": "He should take the first pitch."},
+             {"content": "He should take the first pitch, really."}]
+    out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"Should {batter} swing at the first pitch?")
+    verdict = tools.call("take_guide", {"batter": batter, "balls": 0, "strikes": 0})["summary"]
+    expected = verdict.removeprefix("Verdict: ").split(". ")[0]
+    assert out["answer"].startswith("On 0-0: " + expected) or "take the first pitch" not in out["answer"]
+
+
+def test_markdown_does_not_hide_contradictions():
+    from abs_assist.coach import stance_problems
+    guide = [{"tool": "take_guide", "result": json.dumps({"summary": "Verdict: swing at strikes, take balls. x"})}]
+    assert stance_problems("He should **take** the first pitch; verdict: swing at strikes.", guide)

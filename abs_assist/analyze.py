@@ -71,7 +71,8 @@ PITCHER_FIELDS = ("Rates are 0-1. in_zone_rate: share of his pitches inside the 
                   "pitches outside the zone that batters swung at. whiff_rate: share of swings against him that missed "
                   "(this is 'missing bats'). pitch_mix: share of his pitches by type. strikes_lost_at_back: taken pitches "
                   "inside the zone at the middle of the plate but called balls at the back edge.")
-BATTER_FIELDS = ("Rates are 0-1 and per pitch, not per plate appearance. zone_cm: the bottom and top of his ABS zone "
+BATTER_FIELDS = ("Rates are 0-1. The swing, chase and whiff rates are per pitch; batting_average is per at-bat; "
+                 "strikeout_rate and walk_rate (in compared_with_league) are per plate appearance. zone_cm: the bottom and top of his ABS zone "
                  "in cm above the ground (the zone's width is always 47.18 cm). zone_swing_rate: share of in-zone pitches "
                  "he swung at. chase_rate: share of pitches outside the zone he swung at. whiff_rate: share of his swings "
                  "that missed. value_per_pa: his average run value per plate appearance.")

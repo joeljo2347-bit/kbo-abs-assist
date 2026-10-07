@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Labels the low-pitch rates as 2025 though the tool only says 'this season so far', and overstates the back-edge mechanism as the cause."}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Presents his overall .261 average as his RISP average; the tool has no RISP split and the answer should have said so."}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims the fastball accounts for the bulk of his strikeout and whiff chances, which no tool result supports."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Only LG Twins was queried, so the claim that they lead all teams is unsupported."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Presents his overall .261 batting average as his average with runners in scoring position; the tool has no RISP split."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Queried only LG Twins and never answered which team loses the most, though the tool takes any team."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Wrong conclusion: 32 of 59 pitchers are lower than him, so he loses more than most even though his rate is below the mean."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Unsupported, self-contradictory close ('patient approach that still takes many good pitches') after calling him aggressive in the zone, and 'rarely' chases overstates a 23% rate that is only somewhat below average."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

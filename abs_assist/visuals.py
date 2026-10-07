@@ -122,8 +122,11 @@ def rules(r: Dict[str, Any]) -> List[Block]:
 
 def take_guide(r: Dict[str, Any]) -> List[Block]:
     rows = [[t["pitch"], pct(t["p_called_strike"])] for t in r["take"]]
-    return [{"type": "table", "title": f"Pitches to take on {r['count']}", "columns": ["Pitch", "Called a strike"],
-             "rows": rows, "bold": []}] if rows else []
+    verdict, _, detail = r.get("summary", "").removeprefix("Verdict: ").partition(". ")
+    head = [{"type": "headline", "label": f"On {r['count']}", "text": verdict}, {"type": "note", "text": detail}] if verdict else []
+    table = [{"type": "table", "title": f"Best pitches to take on {r['count']}", "columns": ["Pitch", "Called a strike"],
+              "rows": rows, "bold": []}] if rows else []
+    return head + table
 
 
 COMPARE = {"pitcher_profile": ("pitcher", [("in_zone_rate", "In the zone"), ("chase_rate", "Chase"), ("whiff_rate", "Swings that miss")]),

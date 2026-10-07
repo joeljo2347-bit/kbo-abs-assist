@@ -156,8 +156,13 @@ class Toolbox:
         wanted = normalize(value)
         names = [n for (n,) in self.db.execute(f"SELECT DISTINCT {column} FROM pitches")]
         exact = [n for n in names if normalize(n) == wanted]
+        if exact:
+            return exact[0]
+        other = "batter" if column == "pitcher" else "pitcher"
+        if any(normalize(n) == wanted for (n,) in self.db.execute(f"SELECT DISTINCT {other} FROM pitches")):
+            return None  # an exact name of the other kind of player: never stretch it to a longer name here
         partial = [n for n in names if wanted in normalize(n)]
-        return exact[0] if exact else partial[0] if len(partial) == 1 else None
+        return partial[0] if len(partial) == 1 else None
 
     def _typed(self, name: str, args: Dict[str, Any]) -> Optional[str]:
         """An error if an argument is unknown, or text where text is expected isn't."""

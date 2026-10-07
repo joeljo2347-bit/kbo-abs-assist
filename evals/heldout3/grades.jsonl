@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Describes the worst fastball as 'knee-high' when the tool says 'below the zone, on the edge'."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Claims a 100% called-strike chance for all three pitches (slider is 0.745) and swing chances of 72-73% (actual 70.3-72.6%)."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims the fastball has the highest strike rate with two strikes, but no strike-rate data was provided."}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": false, "useful": true, "note": "Says he throws the fastball 'most of the time' with two strikes, but 48.8% is less than half."}
+{"id": "749774d689", "pass": false, "useful": true, "note": "Invents a league-average changeup rate vs lefties (~30%) that no tool provided."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Says the zone is 1.1 cm shorter, but the tool says it is the same size and only 1.1 cm lower for a 180 cm batter."}

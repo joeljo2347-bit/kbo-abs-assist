@@ -147,6 +147,47 @@ def count_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
             for b, s in wrong]
 
 
+_TEAM_QUESTION = re.compile(r"\b(?:which|what) teams?\b|\bteams?'s?\b.*\b(?:most|least|best|worst|highest|lowest)\b", re.I)
+
+
+def scope_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """A question comparing teams, answered only from rankings of individual players."""
+    boards = [c["args"].get("who", "batters") for c in calls if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)]
+    if _TEAM_QUESTION.search(question) and boards and not any(str(w).startswith("team") for w in boards):
+        return ["a team question answered from a ranking of players (call leaderboard with who=team_batting or team_pitching)"]
+    return []
+
+
+# What an answer must say, and must not say, for each take-guide verdict.
+_STANCE = {
+    "swing at strikes, take balls": (r"\bswing\b.*\b(?:strikes?|in the zone)\b|\b(?:strikes?|in the zone)\b.*\bswing",
+                                     r"\b(?:should|to) take (?:the|it|first|every|all)\b|\btake rather than swing"),
+    "be patient: take most pitches": (r"\b(?:take|patient)", r"\bswing at (?:everything|most)"),
+    "be aggressive: swing at most pitches": (r"\b(?:swing|aggressive)", r"\b(?:should|to) take (?:the|it|first|every|all)\b"),
+    "be selective": (r"\bselective|\bswing\b.*\btake\b|\btake\b.*\bswing\b", r"$^"),
+}
+
+
+def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """An answer whose take-or-swing advice doesn't match the verdict the take guide worked out."""
+    for c in reversed(calls):
+        if c["tool"] == "take_guide":
+            verdict = str(json.loads(c["result"]).get("summary", "")).removeprefix("Verdict: ").split(". ")[0]
+            must, never = _STANCE.get(verdict, (r"", r"$^"))
+            plain = re.sub(r"[*_`]", "", answer)  # "should **take**" is still "should take"
+            if not re.search(must, plain, re.I | re.S) or re.search(never, plain, re.I):
+                return [f"advice that doesn't match the take guide's verdict ('{verdict}'): say that verdict"]
+            return []
+    return []
+
+
+def stated_verdict(calls: List[Dict[str, Any]]) -> str:
+    """The take guide's own verdict, in its words: used when the model contradicts it twice."""
+    guide = json.loads(next(c["result"] for c in reversed(calls) if c["tool"] == "take_guide"))
+    verdict, _, detail = str(guide["summary"]).removeprefix("Verdict: ").partition(". ")
+    return f"On {guide['count']}: {verdict}. {detail}"
+
+
 def unlabeled_runs(answer: str, evidence: str) -> List[str]:
     """A number that only a runs field supports, written without saying it's in runs."""
     runs = [v for v, _ in numbers(" ".join(_RUNS_FIELD.findall(evidence)))]
@@ -263,9 +304,10 @@ class Coach:
             if not answer:
                 continue
             bad = (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
-                   + count_problems(question, calls) + ([] if convo.evidence else [UNLOOKED]))
+                   + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
+                   + ([] if convo.evidence else [UNLOOKED]))
             if not bad or check is not None:
-                final = answer
+                final = answer if not (check and stance_problems(answer, calls)) else stated_verdict(calls)
                 break
             check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
             convo.messages.append(check)

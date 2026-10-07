@@ -159,7 +159,10 @@ def leaderboard(league: League, metric: str, who: str = "batters", team: str = "
         pool = {n: v for n, v in pool.items() if n in names}
     ranked = sorted((n for n in pool if pool[n].get(metric) is not None), key=lambda n: -pool[n][metric])
     return {"how_to_read": f"{metric}: {metrics[metric]}. Highest first; everyone qualified is counted.",
-            "metric": metric, "who": who, "team": team or "all", "qualified": len(ranked), "league_average": league.average(kind, metric),
+            "metric": metric, "who": who, "team": team or "all",
+            "note": ("These are teams." if kind.startswith("team") else
+                     "These are individual players, not teams: for a team ranking use who=team_batting or team_pitching."),
+            "qualified": len(ranked), "league_average": league.average(kind, metric),
             "ranking": [{"name": n, "team": pool[n].get("team", n), metric: pool[n][metric], "pitches": pool[n]["pitches"]}
                         for n in ranked[:top]]}
 
