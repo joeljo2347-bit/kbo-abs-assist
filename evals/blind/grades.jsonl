@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Calls the 51.2 cm zone height a 'width' (width is 47.18 cm) and says 'above home plate' when the tool says above the ground."}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Compares his zone position (48.3-99.5 cm) to the league-average zone height (51.8 cm) and calls it 'lower', misreading a height comparison, and omits his own 51.2 cm."}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Lists only the top four takes and leaves out the tool's verdict that taking is better on 62 of 64 out-of-zone pitches (plus 4 in-zone), which misleads the coach."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Does not name which pitches to lay off even though the tool listed them (high sinkers, splitter, curveball above the zone), and 'swing only when the ball is a called strike' is garbled."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Never called pitcher_profile, misread the question as being about batting, and wrongly claims pitcher whiff data isn't tracked."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Misreads 3.4% as a share of middle-of-plate strikes taken when it is a share of all taken pitches, and calls 123 of 384 'the majority'."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "No answer given (step limit) even though both pitcher profiles with whiff rates had been retrieved."}

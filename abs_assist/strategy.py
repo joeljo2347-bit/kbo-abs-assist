@@ -127,8 +127,9 @@ def take_summary(better: List[Tuple[float, Key, Dict[str, float]]], rated: List[
     plan = ("swing at strikes, take balls" if zone_take <= 0.25 * zone_all and out_take >= 0.75 * out_all
             else "be patient: take most pitches" if len(better) > 0.75 * len(rated)
             else "be aggressive: swing at most pitches" if len(better) < 0.25 * len(rated) else "be selective")
-    return (f"Verdict: {plan}. In the zone, taking is better on {zone_take} of {zone_all} pitch types and locations "
-            f"(swing at the rest); outside the zone, taking is better on {out_take} of {out_all}.")
+    return (f"Verdict: {plan}. This compares kinds of pitch, not how often he swings: of {zone_all} kinds of pitch in "
+            f"the zone (by type and location), taking is the better choice for {zone_take}; of {out_all} kinds outside "
+            f"the zone, for {out_take}.")
 
 
 READ_ME = ("batter_value_after_runs: the batter's expected runs after this pitch, in runs, not a percentage (lower is "

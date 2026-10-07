@@ -72,9 +72,27 @@ def lost(r: Result) -> Optional[str]:
             f"({r['share_of_takes'] * 100:.1f}% of {r['taken_pitches']:,} taken){most}.")
 
 
+def _vs(r: Result, metric: str) -> str:
+    v = (r.get("compared_with_league") or {}).get(metric, {})
+    return str(v.get("verdict", "")).split(" (")[0]
+
+
+def pitcher(r: Result) -> Optional[str]:
+    return (f"{r['pitcher']}: {_pct(r['in_zone_rate'])} of his pitches in the zone ({_vs(r, 'in_zone_rate')}), "
+            f"{_pct(r['whiff_rate'])} of swings against him miss ({_vs(r, 'whiff_rate')}), fastball {r.get('fastball_kmh')} km/h "
+            f"({_vs(r, 'fastball_kmh')}).")
+
+
+def batter(r: Result) -> Optional[str]:
+    return (f"{r['batter']}: chases {_pct(r['chase_rate'])} of pitches outside the zone ({_vs(r, 'chase_rate')}), "
+            f"misses on {_pct(r['whiff_rate'])} of swings ({_vs(r, 'whiff_rate')}), hitting "
+            f"{_stat('batting_average', r.get('batting_average'))} with {r.get('home_runs')} home runs.")
+
+
 WRITERS: Dict[str, Callable[[Result], Optional[str]]] = {
     "recommend_pitch": pitch_plan, "attack_plan": pitch_plan, "take_guide": take, "leaderboard": board,
     "pitcher_arsenal": arsenal, "predict_next_pitch": predict, "strikes_lost_at_back": lost,
+    "pitcher_profile": pitcher, "batter_profile": batter,
 }
 
 

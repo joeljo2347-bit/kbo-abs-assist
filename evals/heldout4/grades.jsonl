@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Tool ranks individual hitters, not teams; naming Lotte as the team that chases most is unsupported (KIA has three of the top ten)."}
-{"id": "3622d4a516", "pass": false, "useful": false, "note": "Gives the numbers but never answers the yes/no question; omits that 75 of 89 others swing more in the zone, so he is less aggressive than most."}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "Claims the changeup's 13.6% whiff rate is higher than his other pitches, but the splitter's is 16%."}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Drops the 'letter-high' location from the recommended pitch, so the call the coach acts on is incomplete."}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": "Numbers are correct, but it names the splitter (9%) as the secondary option and leaves out the fastball (34%) vs RHB."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims he throws harder than most 'starters', but the tool compares him with qualified pitchers and says nothing about starters."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": false, "note": "Says take the first pitch, contradicting the tool's verdict of swing at strikes, take balls."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

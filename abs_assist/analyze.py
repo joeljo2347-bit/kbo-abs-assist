@@ -109,7 +109,8 @@ def batter_profile(db: sqlite3.Connection, batter: str) -> Dict[str, Any]:
     pas = [r["pa_result"] for r in data if r["pa_result"]]
     return {"how_to_read": BATTER_FIELDS, "batter": batter, "team": data[0]["batter_team"],
             "height_cm": data[0]["batter_height_cm"],
-            "zone_cm": [round(bottom, 1), round(top, 1)], "pitches_seen": len(data), "plate_appearances": len(pas),
+            "zone_cm": [round(bottom, 1), round(top, 1)], "zone_bottom_cm": round(bottom, 1), "zone_top_cm": round(top, 1),
+            "zone_height_cm": round(top - bottom, 1), "pitches_seen": len(data), "plate_appearances": len(pas),
             "zone_swing_rate": _rate(sum(r["swing"] for r in zone), len(zone)),
             "chase_rate": _rate(sum(r["swing"] for r in out), len(out)),
             "whiff_rate": _rate(sum(r["result"] == "whiff" for r in data), sum(r["swing"] for r in data)),

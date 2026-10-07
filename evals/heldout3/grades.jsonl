@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Claims a 100% called-strike chance for all three pitches (slider is 0.745) and swing chances of 72-73% (actual 70.3-72.6%)."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Misreads the take guide's 62 of 64 pitch types/locations where taking is better as pitches he actually took, and claims he is above average with no tool data on his chase rate."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "The plan comes only from the batter's attack plan and ignores the pitcher Kim Ji-hoon, so it recommends a curveball without checking that he throws one."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Says he throws the fastball 'most of the time' with two strikes, but 48.8% is less than half."}
-{"id": "749774d689", "pass": false, "useful": true, "note": "Invents a league-average changeup rate vs lefties (~30%) that no tool provided."}
-{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Says the handedness split isn't available in this system after checking only pitcher_profile; nothing in the record supports that claim."}
+{"id": "590ddb527d", "pass": false, "useful": false, "note": "Answers 'Yes' to being more aggressive, then advises patience, which contradicts itself."}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Says the zone is 1.1 cm shorter, but the tool says it is the same size and only 1.1 cm lower for a 180 cm batter."}
+{"id": "4b515075eb", "pass": false, "useful": true, "note": "Swaps the zone edges: 48.7 cm is the bottom and 100.3 cm the top for a 180 cm batter, not the reverse."}

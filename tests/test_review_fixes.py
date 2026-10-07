@@ -243,3 +243,23 @@ def test_the_recommended_pitch_keeps_its_location():
     calls = [{"tool": "recommend_pitch", "result": json.dumps({"best": [{"pitch": "sinker, letter-high, on the edge"}]})}]
     assert location_problems("Throw the sinker on the edge.", calls)
     assert not location_problems("Throw the sinker letter‑high, on the edge.", calls)
+
+
+def test_yes_no_routing_and_team_scope_checks(tools):
+    from abs_assist.coach import routing_problems, scope_problems, yes_no_problems
+    guide = [{"tool": "take_guide", "result": "{}"}]
+    assert yes_no_problems("**Yes** - he should be patient.", guide)
+    assert not yes_no_problems("Swing at strikes, take balls.", guide)
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    plan = [{"tool": "attack_plan", "args": {}}]
+    assert routing_problems(f"{pitcher} vs Kim, 1-1. Plan?", plan, tools.pitchers())
+    assert not routing_problems("How do we pitch Kim on 1-1?", plan, tools.pitchers())
+    one_team = [{"tool": "strikes_lost_at_back", "args": {"team": "LG Twins"}}]
+    assert scope_problems("Which team's pitchers lose the most strikes at the back?", one_team)
+
+
+def test_step_limit_returns_what_was_looked_up(tools):
+    pitchers = tools.find_players("LG Twins")["pitchers"][:2]
+    queue = [call("pitcher_profile", pitcher=p) for p in pitchers] * 5
+    out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"Who misses more bats, {pitchers[0]} or {pitchers[1]}?")
+    assert pitchers[0] in out["answer"] and pitchers[1] in out["answer"]

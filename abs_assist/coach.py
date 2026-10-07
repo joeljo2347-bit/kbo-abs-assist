@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from abs_assist import visuals
 from abs_assist.tools import SCHEMA, Toolbox
 
-MAX_ROUNDS, KEEP_MESSAGES = 8, 40
+MAX_ROUNDS, KEEP_MESSAGES = 10, 40
 SYSTEM = (
     "You are the club's baseball strategy assistant, in an ongoing conversation with coaches and analysts.\n"
     "- Use the conversation: follow-ups like 'and with two strikes?', 'why?' or 'what about him?' refer to "
@@ -153,9 +153,9 @@ _TEAM_QUESTION = re.compile(r"\b(?:which|what) teams?\b|\bteams?'s?\b.*\b(?:most
 
 
 def scope_problems(question: str, calls: List[Dict[str, Any]]) -> List[str]:
-    """A question comparing teams, answered only from rankings of individual players."""
+    """A question comparing teams, answered without a ranking of teams (from players, or from one team)."""
     boards = [c["args"].get("who", "batters") for c in calls if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)]
-    if _TEAM_QUESTION.search(question) and boards and not any(str(w).startswith("team") for w in boards):
+    if _TEAM_QUESTION.search(question) and calls and not any(str(w).startswith("team") for w in boards):
         return ["a team question answered from a ranking of players (call leaderboard with who=team_batting or team_pitching)"]
     return []
 
@@ -168,6 +168,22 @@ _STANCE = {
     "be aggressive: swing at most pitches": (r"\b(?:swing|aggressive)", r"\b(?:should|to) take (?:the|it|first|every|all)\b"),
     "be selective": (r"\bselective|\bswing\b.*\btake\b|\btake\b.*\bswing\b", r"$^"),
 }
+
+
+def yes_no_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """A bare yes or no on a take-or-swing question: the verdict is never a yes or a no, so say it instead."""
+    if any(c["tool"] == "take_guide" for c in calls) and re.match(r"\W*(?:yes|no)\b", re.sub(r"[*_`]", "", answer), re.I):
+        return ["an answer that opens with yes or no (open with the take guide's verdict instead)"]
+    return []
+
+
+def routing_problems(question: str, calls: List[Dict[str, Any]], pitchers: List[str]) -> List[str]:
+    """A pitcher named in the question, but a plan for 'any pitcher' (attack_plan) used instead of his own."""
+    named = [p for p in pitchers if p.lower() in question.lower()]
+    tools_used = {c["tool"] for c in calls}
+    if named and "attack_plan" in tools_used and "recommend_pitch" not in tools_used:
+        return [f"a plan that ignores the pitcher named ({named[0]}): call recommend_pitch with him"]
+    return []
 
 
 def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
@@ -184,15 +200,20 @@ def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
 
 
 def code_answer(calls: List[Dict[str, Any]]) -> str:
-    """The code-written answer of the latest tool that has one: shown when the model's rewrite still fails."""
-    for c in reversed(calls):
+    """The code-written answer of the latest tool that has one (of every call to it, when it was called for
+    several players): shown when the model's rewrite still fails, or the step limit is reached."""
+    written = []
+    for c in calls:
         try:
             text = json.loads(c["result"]).get("answer")
         except (ValueError, AttributeError):
             continue
         if text:
-            return str(text)
-    return ""
+            written.append((c["tool"], str(text)))
+    if not written:
+        return ""
+    last = written[-1][0]
+    return " ".join(dict.fromkeys(t for tool, t in written if tool == last))
 
 
 def location_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
@@ -314,6 +335,13 @@ class Coach:
             convo.evidence, convo.question_at = saved[1], saved[2]
             raise
 
+    def _problems(self, question: str, answer: str, calls: List[Dict[str, Any]], convo: Conversation) -> List[str]:
+        """Everything the checks in code send back about one answer."""
+        return (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
+                + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
+                + yes_no_problems(answer, calls) + location_problems(answer, calls)
+                + routing_problems(question, calls, self.tools.pitchers()) + ([] if convo.evidence else [UNLOOKED]))
+
     def _ask(self, question: str, convo: Conversation) -> Dict[str, Any]:
         convo.messages.append({"role": "user", "content": question})
         convo.question_at = len(convo.messages) - 1
@@ -323,17 +351,15 @@ class Coach:
             answer = self._step(convo, calls) or ""
             if not answer:
                 continue
-            bad = (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
-                   + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
-                   + location_problems(answer, calls)
-                   + ([] if convo.evidence else [UNLOOKED]))
+            bad = self._problems(question, answer, calls, convo)
             if not bad or check is not None:
                 final = answer if not (check and bad) else (code_answer(calls) or answer)
                 break
             check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
             convo.messages.append(check)
         _drop_rejected(convo, check)  # a rejected answer is never returned, even if no rewrite came in time
-        return {"answer": final or "I couldn't finish that within the step limit.", "corrected": check is not None,
+        final = final or code_answer(calls) or "I couldn't finish that within the step limit."
+        return {"answer": final, "corrected": check is not None,
                 "tools_used": [c["tool"] for c in calls], "calls": calls, "visuals": visuals.for_calls(calls),
                 "conversation": convo}
 

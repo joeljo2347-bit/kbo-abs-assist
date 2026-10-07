@@ -135,9 +135,13 @@ class Toolbox:
                                "the middle of the plate, and the share ABS called balls (it was still dropping by the back).",
                 "zone_by_season": shares, "zone_heights_are_measured": "in cm above the ground",
                 "calls_in_this_data_use_season": 2025, "width_cm": ZONE_WIDTH_CM, "plate_depth_cm": 43.18, "middle_to_back_cm": 21.59,
-                "example_180cm_batter_2025_cm": [round(180 * SEASON_SHARES[2025][1], 1), round(180 * SEASON_SHARES[2025][0], 1)],
+                "example_180cm_batter_2025_cm": {"bottom": round(180 * SEASON_SHARES[2025][1], 1),
+                                                 "top": round(180 * SEASON_SHARES[2025][0], 1)},
                 "change_2024_to_2025": zone_change(2024, 2025),
                 "low_pitches": self.league.cached("low_pitches", lambda: low_pitch_calls(self.db))}
+
+    def pitchers(self) -> List[str]:
+        return self.league.cached("pitcher_names", lambda: [p for (p,) in self.db.execute("SELECT DISTINCT pitcher FROM pitches")])
 
     def covers(self) -> str:
         """What period every result describes, so an answer never has to guess."""
@@ -214,6 +218,17 @@ class Toolbox:
         return f"No {column} named {name!r}; use find_players."
 
     def call(self, name: str, args: Dict[str, Any]) -> Any:
+        """Run a tool. A profile asked for the wrong kind of player (a pitcher's name to batter_profile)
+        returns the right profile, with a note, instead of an error that costs the coach a step."""
+        if name in ("pitcher_profile", "batter_profile") and isinstance(args.get(name.split("_")[0]), str):
+            mine, other = name.split("_")[0], "batter" if name.startswith("pitcher") else "pitcher"
+            value = args[mine]
+            if self.resolve(value, mine) is None and self.resolve(value, other):
+                out = self._call(f"{other}_profile", {other: value})
+                return {"note": f"{value} is a {other}, so this is his {other} profile.", **out} if "error" not in out else out
+        return self._call(name, args)
+
+    def _call(self, name: str, args: Dict[str, Any]) -> Any:
         if name not in self.run:
             return {"error": f"Unknown tool {name}."}
         problem = self._typed(name, args)

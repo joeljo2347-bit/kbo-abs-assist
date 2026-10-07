@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Opens with 'Yes' to swinging, then says he should mostly take, which contradicts itself."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": false, "useful": true, "note": "'Avoid any pitch above the zone' goes beyond the tool, which only lists splitters above the zone as worst."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Presents his overall .261 batting average as his average with runners in scoring position; the tool has no RISP split."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Queried only LG Twins and never answered which team loses the most, though the tool takes any team."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Only LG Twins was queried, so the claim that they lose the most of any team has no support."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Unsupported, self-contradictory close ('patient approach that still takes many good pitches') after calling him aggressive in the zone, and 'rarely' chases overstates a 23% rate that is only somewhat below average."}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Says 'higher than most teammates' when the comparison is against the league, not teammates."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "No tool was called, and the claim that only team-level data exists is unsupported."}

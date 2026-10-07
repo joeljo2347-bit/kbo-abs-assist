@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Tool returned a different pitcher (Kim Ji-hoon), the answer cites no two-strike data, and it invents a link between in-zone rate and two-strike counts."}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "No two-strike data was shown, yet the answer advises staying aggressive and contradicts itself by saying to take zone pitches rather than lay them off."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "The 12.6% whiff rate is his overall rate, not the splitter's; no per-pitch strikeout data supports calling the splitter his best strikeout pitch."}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Gives the pitcher's overall 12.6% whiff rate as the splitter's whiff rate; the tool has no per-pitch whiff data, so calling the splitter his best strikeout pitch is unsupported."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says to avoid 'any other pitch toward a corner', but the tool lists sinker toward a corner as the second-best pitch."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Calls the strikeout rate a share of pitches (it is per plate appearance, 121/643) and leaves out his own 18.8% rate."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Claims SSG leads as a team from a top-10 individual leaderboard; no team-level chase data was provided."}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

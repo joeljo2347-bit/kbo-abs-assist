@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": false, "note": "Says only a few in-zone swings are preferable, but the tool says swing on 40 of 54 in-zone types; the take list is also garbled."}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Calls the listed takes 'four pitch types' when they are three types (four pitch/location entries), and skips the in-zone swing guidance."}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Drops the key letter-high location and calls it 'edge of the plate', which misstates the recommended pitch."}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Rightly says SLG is unavailable, but gives a wrong formula (divides by plate appearances, not at-bats) and cites doubles and triples the tools don't provide."}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "'Swings well in the zone' is unsupported (zone swing rate is lower than most), and it ignores the below-average batting average."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Gives the overall two-strike mix as if it answered for lefties and never says a lefty-plus-two-strikes split isn't available."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Calls him a solid contact hitter partly from a lower zone-swing rate, which does not measure contact, and leaves out his below-most batting average."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Gives the overall two-strike mix as his mix vs left-handers with two strikes; the tool has no combined split."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Misreads walk_rate (walks per batter faced) as a share of at-bats."}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

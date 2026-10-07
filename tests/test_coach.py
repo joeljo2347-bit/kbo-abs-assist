@@ -160,6 +160,6 @@ def test_vague_pitch_heights_are_sent_back():
 
 def test_a_pitcher_sent_to_a_batter_tool_is_pointed_to_the_pitcher_tools(tools):
     pitcher = tools.find_players("LG Twins")["pitchers"][0]
-    error = tools.call("batter_profile", {"batter": pitcher})["error"]
-    assert "is a pitcher" in error and "pitcher_profile" in error
+    out = tools.call("batter_profile", {"batter": pitcher})
+    assert "is a pitcher" in out["note"] and out["pitcher"] == pitcher and "in_zone_rate" in out
     assert "games" in tools.call("strikes_lost_at_back", {"team": "LG Twins"})
