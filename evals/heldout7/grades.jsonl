@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": false, "note": "Answer is a server error; the question is not addressed."}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": "Correct and supported, but the strikeout-rate sentence is repeated word for word."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "No tool calls; the answer is a raw HTTP 500 error and does not address the question."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": "Numbers are supported, but the strikeout-rate sentence is repeated word for word."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": false, "useful": true, "note": "share_of_takes is 0.0355 (3.55%), but the answer reports 3.5%, which is truncated rather than rounded to 3.6%."}

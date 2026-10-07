@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import urllib.error
 import urllib.request
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -156,8 +157,13 @@ class Coach:
         convo.question_at = len(convo.messages) - 1
         calls: List[Dict[str, Any]] = []
         for _ in range(MAX_ROUNDS):
-            if self._step(convo, calls) is not None:
-                break  # the model has finished choosing tools
+            try:
+                if self._step(convo, calls) is not None:
+                    break  # the model has finished choosing tools
+            except urllib.error.HTTPError as exc:
+                if exc.code < 500:
+                    raise
+                break  # the model server choked on this turn (e.g. a malformed tool call): answer from what code can look up
         final = compose.answer(question, calls, self.tools, convo.last_calls)
         if convo.messages[-1]["role"] == "assistant" and not convo.messages[-1].get("tool_calls"):
             convo.messages[-1]["content"] = final  # later turns see what the coach was actually told

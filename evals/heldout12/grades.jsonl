@@ -1,9 +1,9 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "The question asks whether he should take more pitches, but the answer only repeats which pitch kinds are best taken, with no data on how often he takes now, and the tool says it does not measure that."}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Opening line 'take the pitches below, swing at the rest' contradicts the tool, which says taking is better for all 64 outside-zone kinds, not just the 4 listed; it also answers 'Partly' with no data on how often he takes now."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Patience is about his actual behaviour (chase or walk rate), but the answer gives a 0-0 take guide about what he should do and never says whether he is patient."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": "Lists Choi Woo-jin at 15 but leaves out Jung Dong-hyun, who is tied with him."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": "The verdict rests on chase rate alone; it leaves out his league-lowest zone swing rate and his low walk rate."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}

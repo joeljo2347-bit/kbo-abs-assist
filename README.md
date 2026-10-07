@@ -61,7 +61,7 @@ flowchart LR
     D --> S[Strategy<br/>expected value per pitch and location]
     D --> P[Next-pitch model<br/>learns every pitch]
     D --> L[Live tracker<br/>alerts vs his own baseline]
-    A & S & P --> T[Tools] --> AI[AI coach<br/>conversation, numbers from tools]
+    A & S & P --> T[Tools] --> AI[AI coach<br/>model picks tools, code writes the answer]
 ```
 
 | Part | What it does | Where |
@@ -72,7 +72,7 @@ flowchart LR
 | Strategy | Expected runs for the batter of every pitch type and location in a count, from swing, whiff, foul, contact and called-strike rates, scaled by the batter's tendencies | `abs_assist/strategy.py` |
 | Next-pitch model | Each pitcher's choices by batter side, count and previous pitch, backing off to broader patterns when data is thin. Updates after every pitch | `abs_assist/predict.py` |
 | Live tracker | Velocity against his own early pitches today (beyond normal noise), zone rate against his norm, pitch-count milestones | `abs_assist/live.py` |
-| AI coach | A language model keeps the conversation and picks the analysis tools; a check in code requires every number in an answer to come from a tool or the published rules. The numbers shown next to an answer are built from the tool results, never from the model's text | `abs_assist/coach.py`, `tools.py`, `visuals.py` |
+| AI coach | A language model reads the conversation and picks the analysis tools and their arguments. The answer is then written in code from the results, shaped by what was asked (a yes or no from where a player ranks, a comparison, a split, a count), and code fills in lookups the model skipped. The model's own wording is never shown | `abs_assist/coach.py`, `compose.py`, `fallback.py`, `tools.py`, `visuals.py` |
 
 ## The league: simulated, calibrated to real KBO totals
 
@@ -132,33 +132,32 @@ is told to fail anything in doubt. It checks that every number and claim is supp
 result and that the answer addresses the question.
 
 The honest number is the score on questions the coach has never been tuned on. Each held-out set
-was written and committed before the changes that followed it, run once, and reported as it came out:
+was written and committed before the changes that followed it, run once, and reported as it came out.
 
-| Held-out set | Run when it was new, after | Passed |
-|---|---|---|
-| [1](evals/heldout-before/results.md) | tuning on the original ten questions | 2/10 |
-| [2](evals/heldout2-before/results.md) | leaderboards, league averages, the arsenal | 3/10 |
-| [3](evals/heldout3-before/results.md) | readable ranks, data periods, pitch roles | 4/10 |
-| [4](evals/heldout4-first-run/results.md) | verdicts worked out in code (above or below most, take or swing) | 6/10 |
-| [5](evals/heldout5-first-run/results.md) | count and runs checks, splits, strikeout and walk rates | 6/10 |
-| [6](evals/heldout6-first-run/results.md) | team-ranking and take-or-swing checks | 5/10 |
-| [7](evals/heldout7-first-run/results.md) | a one-sentence answer written by code for every main tool | 8/10 |
-| [8](evals/heldout8-first-run/results.md) | yes/no, named-pitcher and team-scope checks | 6/10 |
-| [9](evals/heldout9-first-run/results.md) | fallbacks computed from tool results | 5/10 |
-| [10](evals/heldout10-first-run/results.md) | unit, direction and unavailable-stat checks | 3/10 |
+**First design: the model wrote the answers**, with checks in code that sent back unsupported numbers,
+wrong units, contradicted verdicts and so on.
 
-The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
-as overfit. The code-side fixes were worth it up to about set 4; since then new questions score
-between 3 and 8 out of 10 with no trend, and all eleven sets rerun on the current code pass
-**61 of 110** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ... [10](evals/heldout10/results.md)).
-The same set moves by two or three points between runs, so single-set differences are noise.
+| Held-out set | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Passed when new | [2](evals/heldout-before/results.md) | [3](evals/heldout2-before/results.md) | [4](evals/heldout3-before/results.md) | [6](evals/heldout4-first-run/results.md) | [6](evals/heldout5-first-run/results.md) | [5](evals/heldout6-first-run/results.md) | [8](evals/heldout7-first-run/results.md) | [6](evals/heldout8-first-run/results.md) | [5](evals/heldout9-first-run/results.md) | [3](evals/heldout10-first-run/results.md) |
 
-**The limit is the language model, not the data or the checks.** Every check in code does what it
-was written for, and every number on the card beside an answer comes straight from the tools. But a
-small local model still writes sentences that overstate ("avoid any splitter" when the tool flagged one
-location), invert a comparison, or pad an answer with a claim no tool made, and each new check only
-moves those mistakes somewhere else. With its reasoning set to medium instead of low, set 5 scored
-[7/10](evals/heldout5-medium-reasoning/results.md) instead of 6 at about 10 s per answer instead of 6.
+It levelled off at 5-6 out of 10: every new check fixed what it targeted and the model found new
+ways to word things wrong (inverting a comparison, overstating "avoid a splitter" when one location
+was flagged). The first held-out set also exposed the original ten-question score
+(9/10, [rounds 1-6](evals/blind-round6/results.md)) as overfit.
+
+**Current design: the model only chooses tools; code writes the answer** (`abs_assist/compose.py`).
+
+| Held-out set | 11 | 12 | 13 |
+|---|---|---|---|
+| Passed when new | [9](evals/heldout11-first-run/results.md) | [8](evals/heldout12-first-run/results.md) | [**10**](evals/heldout13-first-run/results.md) |
+
+All fourteen sets (the original ten questions and held-out sets 1-13) rerun and regraded on this
+design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
+[13](evals/heldout13/results.md)). Sets 1-12 had been seen while building it, so treat 132/140 as the
+level on known kinds of question and the held-out sets as the test of new ones. The remaining misses
+are wording (a take-or-swing lead that overstated, a rounding of 3.55% to 3.5%) and one model-server
+error; all three are fixed since, and those fixes have not been through a fresh held-out set yet.
 
 ## Run it
 
@@ -180,7 +179,7 @@ python -m evals.calibrate           # fit the league to the KBO totals
 python -m evals.predict_eval        # next-pitch prediction
 python -m evals.live_eval           # fatigue alerts, dev vs held-out season
 python -m evals.coach_eval run      # coach answers (needs the model), then packet / score
-python -m evals.coach_eval run heldout5   # a held-out set (heldout, heldout2 ... heldout5)
+python -m evals.coach_eval run heldout13  # a held-out set (heldout, heldout2 ... heldout13)
 ```
 
 ## Design decisions
@@ -189,8 +188,10 @@ python -m evals.coach_eval run heldout5   # a held-out set (heldout, heldout2 ..
   centimetre, so the engine is plain code with hand-worked tests.
 - **Small, auditable models.** The next-pitch model is counts with back-off, not a neural net: it
   trains in seconds, learns online, and any prediction can be traced to the pitches behind it.
-- **The language model talks; the code decides the numbers.** Facts come from tools; a check sends
-  back any number without a source; the figures shown beside an answer come from the tools directly.
+- **The language model chooses; code answers.** A small local model is good at understanding a
+  question and picking tools, and unreliable at wording numbers (it inverted comparisons and
+  overstated results however many checks were added). So it only picks tools, and the answer is
+  written in code from their results.
 - **Honest evaluation.** Calibration checked on a fresh season, held-out seasons for anything tuned,
   a ceiling for prediction, and blind grading for the coach, with failures published.
 - Every function is under 30 lines, enforced by a test; ruff and mypy run in CI.

@@ -113,3 +113,22 @@ def test_hitter_traits_use_his_profile_and_zone_rate_is_not_the_rules(tools):
     zone = answer(f"Is {pitcher}'s zone rate high or low?", [ran(tools, "pitcher_profile", pitcher=pitcher)], tools)
     assert "share of pitches in the zone" in zone and not zone.startswith(("Yes", "No"))
     assert answer("Is Lee Do-yun better than average at laying off pitches?", [], tools) is not None
+
+
+def test_a_model_server_error_still_gets_an_answer(tools):
+    import urllib.error
+
+    from abs_assist.coach import Coach
+
+    def broken(messages, schema):
+        raise urllib.error.HTTPError("http://model", 500, "Internal Server Error", None, None)
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    out = Coach(tools, broken).ask(f"What will {pitcher} throw next after a fastball on a 1-1 count?")
+    assert "most likely next" in out["answer"] and "after a fastball" in out["answer"]
+
+
+def test_rounding_and_no_repeated_stats(tools):
+    from abs_assist.compose import asked_stats, pct
+    assert pct(0.0355) == "3.6%" and pct(0.25) == "25.0%"
+    stats = asked_stats("Is he hard to strike out, or does he strike out a lot?", "batter")
+    assert [m for m, _ in stats].count("strikeout_rate") == 1

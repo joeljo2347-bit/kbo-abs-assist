@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Opens with 'Only outside the zone' although the tool says taking is better for 4 in-zone kinds of pitch, so that claim contradicts the tool result."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": true, "useful": true, "note": "Lists unrequested batters too, but the pitcher list matches the tool result."}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Asked which pitches lose strikes but names only the fastball, though the tool gave the full breakdown by pitch type."}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": "Numbers are correct, but the answer pastes the tool's 'is a pitcher' note in awkwardly and makes an irrelevant batter leaderboard call."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

@@ -1,5 +1,5 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Repeats the same generic verdict for four counts without saying whether he should protect more, and ignores his high chase rate (0.334, 82 of 89 lower)."}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": "Numbers are correct, but the answer leaks an internal tool note and repeats the same sentence twice."}
+{"id": "547b5b7878", "pass": false, "useful": true, "note": "Never answers the yes/no question about protecting the plate; it repeats the same count verdict four times and adds the chase rate without linking the two."}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}

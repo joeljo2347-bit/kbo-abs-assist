@@ -46,7 +46,7 @@ PITCHER_WORDS: List[Tuple[str, str, bool]] = [
 
 
 def pct(x: Optional[float]) -> str:
-    return "–" if x is None else f"{x * 100:.1f}%"
+    return "–" if x is None else f"{round(x * 100 + 1e-9, 1):.1f}%"  # 0.0355 -> 3.6%, not 3.5%
 
 
 def stat(metric: str, v: Any) -> str:
@@ -71,8 +71,11 @@ def result(call: Call) -> Result:
 def asked_stats(question: str, kind: str) -> List[Tuple[str, bool]]:
     """The stats the question is about, with whether a 'yes' means high."""
     words = BATTER_WORDS if kind == "batter" else PITCHER_WORDS
-    found = [(m, high) for pattern, m, high in words if re.search(pattern, question, re.I)]
-    return list(dict.fromkeys(found))[:3]
+    found: Dict[str, bool] = {}
+    for pattern, m, high in words:  # first match per stat wins, so a stat is never listed twice
+        if m not in found and re.search(pattern, question, re.I):
+            found[m] = high
+    return list(found.items())[:3]
 
 
 def standing(r: Result, metric: str) -> str:
@@ -236,14 +239,16 @@ def take(r: Result, question: str, args: Any = None) -> str:
 
 def _take_lead(verdict: str, question: str) -> str:
     """A direct answer to 'should he take more / be more aggressive / swing'."""
-    more_take = re.search(r"take (?:more|the)|more patient|be patient|lay off|protect", question, re.I)
+    if re.search(r"protect", question, re.I):
+        return "Protecting the plate here means swinging at strikes and still taking balls. "
+    more_take = re.search(r"take (?:more|the)|more patient|be patient|lay off", question, re.I)
     more_swing = re.search(r"swing (?:more|at)|more aggressive|be aggressive", question, re.I)
     if not (more_take or more_swing):
         return ""
     if verdict.startswith("swing at strikes"):
-        return "Only outside the zone: take balls, but swing at strikes. "
+        return "Mostly no: take balls, but swing at strikes. "
     if verdict.startswith("be selective"):
-        return "Partly: take the pitches below, swing at the rest. "
+        return "Partly: take everything outside the zone and some pitches in it (counts below); swing at the other strikes. "
     patient = verdict.startswith("be patient")
     return ("Yes. " if patient == bool(more_take) else "No. ") if verdict.startswith(("be patient", "be aggressive")) else ""
 
@@ -399,7 +404,8 @@ def answer(question: str, calls: List[Call], tools: Any, previous: Optional[List
         verdicts = " ".join(f"On {result(c)['count']}: " + str(result(c)["summary"]).removeprefix("Verdict: ").split(". ")[0] + "."
                             for c in group)
         chase = next((profile(result(c), "chase", c.get("args")) for c in good if c["tool"] == "batter_profile"), "")
-        return f"{verdicts} {chase}".strip()
+        lead = _take_lead(str(result(group[0])["summary"]).removeprefix("Verdict: ").split(". ")[0], question)
+        return f"{lead}{verdicts} {chase}".strip()
     texts = [_write(c, question) for c in group]
     if tool in ("pitcher_profile", "batter_profile") and len(group) > 1:
         texts.insert(0, comparison([result(c) for c in group], question))

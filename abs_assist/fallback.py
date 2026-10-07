@@ -96,6 +96,17 @@ def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
         _run(tools, calls, "abs_rules", {})
 
 
+def _next_pitch(question: str, tools: Any, calls: List[Call]) -> None:
+    """'What will he throw next after a curveball on 1-1?': the next-pitch model for that count and pitch."""
+    pitcher, counts = named(question, tools.pitchers()), _counts(question)
+    after = re.search(r"after an? (\w+)", question, re.I)
+    if pitcher and counts and re.search(r"\bnext\b|likely to throw", question, re.I) \
+            and not any(c["tool"] == "predict_next_pitch" for c in calls):
+        b, s = counts[0]
+        _run(tools, calls, "predict_next_pitch", {"pitcher": pitcher[0], "balls": b, "strikes": s,
+                                                  "previous_pitch": after.group(1).lower() if after else ""})
+
+
 def _named_players(question: str, tools: Any, calls: List[Call]) -> None:
     """Profiles for the players the question names, when the model looked nothing up or didn't look them up."""
     looked = {(c.get("args") or {}).get(k) for c in calls for k in ("pitcher", "batter")}
@@ -160,5 +171,6 @@ def lookup(question: str, tools: Any, calls: List[Call]) -> None:
     _count_metric(tools, calls, question)
     _board_fit(tools, calls, question)
     _team_filter(question, tools, calls)
+    _next_pitch(question, tools, calls)
     _skipped_tool(question, tools, calls)
     _named_players(question, tools, calls)

@@ -1,5 +1,5 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Asked which team chases most but answered with individual players, even though the tool said to use a team ranking."}
-{"id": "3622d4a516", "pass": false, "useful": false, "note": "Calls it 'mixed' with only one stat given; the data says he is less aggressive in the zone than most, and the answer never says no clearly."}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
