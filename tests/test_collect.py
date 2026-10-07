@@ -1,3 +1,5 @@
+import pytest
+
 from abs_assist.collect import ingest, open_store, validate
 from abs_assist.sim import season
 
@@ -35,3 +37,17 @@ def test_duplicates_are_ignored_and_feed_disagreements_flagged():
     assert report.accepted == 1 and report.duplicates == 1 and report.disagreements == 1
     rule = db.execute("SELECT abs_rule, abs_strike FROM pitches").fetchone()
     assert rule == ("bottom, back of plate", 0)  # in at the middle, out at the back: a ball
+
+
+@pytest.mark.parametrize("bad,reason", [
+    ({"pa_result": "hit_by_pitch"}, "pa_result='hit_by_pitch' is not one of"),
+    ({"result": "balk"}, "result='balk' is not one of"),
+    ({"swing": "false"}, "swing must be true or false"),
+    ({"hb_cm": "abc"}, "hb_cm must be a number"),
+    ({"half": "middle"}, "half='middle' is not one of"),
+    ({"pitcher": 7}, "pitcher must be text"),
+])
+def test_malformed_events_are_refused_not_crashing(bad, reason):
+    assert validate(event(**bad)).startswith(reason)
+    report = ingest(open_store(), [event(**bad), event()])
+    assert report.accepted == 1 and report.rejected[0][0] == 0

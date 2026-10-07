@@ -82,8 +82,8 @@ arsenals with typical pro speeds and movement, approach angles, command, count a
 tendencies, sequencing habits and stamina. Batters have heights (which set their zones), a batting
 side, discipline, contact and power. Contact quality depends on location and the platoon matchup.
 
-Five behavioral settings were then **fitted to the KBO's official 2026 league totals** by grid
-search, scoring each setting across three different simulated leagues and checking the winner on
+Three behavioral settings (whiff, hit and power rates) were then **fitted to the KBO's official
+2026 league totals** by grid search, with foul and swing rates fixed at typical pro values, scoring each setting across three different simulated leagues and checking the winner on
 a fresh season ([evals/calibration.md](evals/calibration.md)):
 
 | | KBO 2026 (official) | Simulation, fresh season |
@@ -134,10 +134,15 @@ result, and the answer, with no expected answers.
 |---|---|---|
 | [1](evals/blind-round1/results.md) | first version | 5/10 |
 | [2](evals/blind-round2/results.md) | tolerant name lookup; every tool explains its fields | 8/10 |
-| [3](evals/blind/results.md) | conversations, shorter answers, calibrated league | **8/10** |
+| [3](evals/blind-round3/results.md) | conversations, shorter answers, calibrated league | 8/10 |
+| [4](evals/blind-round4/results.md) | a league-wide attack plan when no pitcher is named; locations checked in code | 6/10 |
+| [5](evals/blind/results.md) | each question routed to the right side's tool; tools say when a name is the other kind of player | **9/10** |
 
-Still failing: with no pitcher named, it asks for one instead of answering from the batter's
-weaknesses; and once it paraphrased "belt-high" as "high", a location the tool ranked among the worst.
+Round 4 went backwards: the new "no pitcher, use the attack plan" rule pulled the model onto that
+tool for hitter-side questions too. Round 5 fixed the cause rather than the questions. The same ten
+questions are used every round, so treat the later scores as progress on known failure types,
+not a fresh test. Still failing: one answer called pitches "high in the zone" that the tool put
+above it, and left out half the pitches to take.
 
 ## Run it
 

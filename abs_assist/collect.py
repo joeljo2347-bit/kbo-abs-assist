@@ -36,27 +36,52 @@ class Report:
     rejected: List[Tuple[int, str]] = field(default_factory=list)  # (event index, reason)
 
 
+RESULTS = {"ball", "called_strike", "whiff", "foul", "out", "single", "double", "home_run"}
+PA_RESULTS = {"walk", "strikeout", "out", "single", "double", "home_run"}
+CHOICES = {"half": {"top", "bottom"}, "result": RESULTS}
+
+
+def _type_problem(name: str, kind: type, value: Any) -> Optional[str]:
+    if kind in (int, float):
+        return None if isinstance(value, (int, float)) and not isinstance(value, bool) else f"{name} must be a number"
+    if kind is bool:
+        return None if isinstance(value, bool) else f"{name} must be true or false"
+    return None if isinstance(value, str) else f"{name} must be text"
+
+
 def validate(event: Dict[str, Any]) -> Optional[str]:
-    """Why this event can't be stored, or None."""
+    """Why this event can't be stored, or None. Every field is type-checked before any comparison,
+    so a malformed event is refused rather than crashing the whole batch."""
     for name, kind in COLUMNS.items():
         if name not in event:
             return f"missing {name}"
-        if kind in (int, float) and (isinstance(event[name], bool) or not isinstance(event[name], (int, float))):
-            return f"{name} must be a number"
+        problem = _type_problem(name, kind, event[name])
+        if problem:
+            return problem
     for name, (lo, hi) in RANGES.items():
         if not lo <= event[name] <= hi:
             return f"{name}={event[name]} is outside {lo}..{hi}"
+    for name, allowed in CHOICES.items():
+        if event[name] not in allowed:
+            return f"{name}={event[name]!r} is not one of {sorted(allowed)}"
     return _optional_problem(event)
 
 
 def _optional_problem(event: Dict[str, Any]) -> Optional[str]:
     """Optional fields may be missing, but when present they must make sense."""
+    for name, kind in OPTIONAL.items():
+        if event.get(name) is not None:
+            problem = _type_problem(name, kind, event[name])
+            if problem:
+                return problem
     for name, (lo, hi) in OPTIONAL_RANGES.items():
         if event.get(name) is not None and not lo <= event[name] <= hi:
             return f"{name}={event[name]} is outside {lo}..{hi}"
     for name, allowed in HANDS.items():
         if event.get(name) is not None and event[name] not in allowed:
             return f"{name} must be R or L"
+    if event.get("pa_result") is not None and event["pa_result"] not in PA_RESULTS:
+        return f"pa_result={event['pa_result']!r} is not one of {sorted(PA_RESULTS)}"
     return None
 
 

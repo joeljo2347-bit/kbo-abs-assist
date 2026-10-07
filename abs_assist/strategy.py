@@ -85,7 +85,8 @@ def batter_tilt(db: sqlite3.Connection, batter: str, league: Dict[Key, Rates]) -
 
 
 MIN_PITCHES = 30
-PLACES = {"below": "below the zone", "low": "low", "middle": "belt-high", "high": "high", "above": "above the zone"}
+# Distinct names, so a shortened one ("high" for "belt-high") can't be read as a different height.
+PLACES = {"below": "below the zone", "low": "knee-high", "middle": "belt-high", "high": "letter-high", "above": "above the zone"}
 SIDES = {"heart": "over the middle", "inner": "toward a corner", "edge": "on the edge", "off": "off the plate"}
 
 
@@ -100,7 +101,7 @@ def evaluate(rate: Rates, b: int, s: int, values: Dict[Count, float], tilt: Tupl
     p_cs = rate.called_strikes / rate.takes if rate.takes else 0.0
     take = p_cs * strike + (1 - p_cs) * ball
     whiff = min(rate.whiffs / max(rate.swings, 1) * tilt[1], 0.95)
-    fouls = rate.fouls / max(rate.swings, 1)
+    fouls = min(rate.fouls / max(rate.swings, 1), 1 - whiff)  # chances of one swing add up to at most 1
     in_play = max(1 - whiff - fouls, 0.0)
     swing = whiff * strike + fouls * foul + in_play * (rate.in_play_value / max(rate.in_play, 1))
     p_swing = min(rate.swings / max(rate.n, 1) * tilt[0], 0.97)
@@ -140,13 +141,25 @@ class Strategy:
         return [(k, evaluate(r, b, s, self.values, tilt)) for k, r in self.league.items()
                 if k[0] in arsenal and k[2] == (s == 2) and r.n >= MIN_PITCHES]
 
+    def attack_plan(self, batter: str, b: int, s: int, top: int = 3) -> Dict:
+        """How to pitch this batter in this count when no pitcher is named: every pitch type and
+        location in the league, scaled by his own tendencies."""
+        tilt = batter_tilt(self.db, batter, self.league)
+        rated = [(k, evaluate(r, b, s, self.values, tilt)) for k, r in self.league.items()
+                 if k[2] == (s == 2) and r.n >= MIN_PITCHES]
+        return self._ranked(rated, b, s, top)
+
     def recommend(self, pitcher: str, batter: str, b: int, s: int, top: int = 3) -> Dict:
         """The pitches that give this batter the least from this count."""
-        ranked = sorted(self.options(pitcher, batter, b, s), key=lambda kv: kv[1]["overall"])
+        return self._ranked(self.options(pitcher, batter, b, s), b, s, top)
+
+    def _ranked(self, rated: List[Tuple[Key, Dict[str, float]]], b: int, s: int, top: int) -> Dict:
+        ranked = sorted(rated, key=lambda kv: kv[1]["overall"])
+        worst = ranked[max(top, len(ranked) - 2):]  # never list a pitch as both best and worst
         return {"how_to_read": READ_ME, "count": f"{b}-{s}",
                 "batter_value_now_runs": round(self.values[(b, s)], 3),
                 "best": [_readable(k, ev) for k, ev in ranked[:top]],
-                "worst": [_readable(k, ev) for k, ev in ranked[-2:]]}
+                "worst": [_readable(k, ev) for k, ev in worst]}
 
     def take_guide(self, batter: str, b: int, s: int, top: int = 4) -> Dict:
         """Pitches this batter does better to take than to swing at, from this count, any pitcher."""

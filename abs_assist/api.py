@@ -17,7 +17,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -100,7 +101,7 @@ def _meta(db: sqlite3.Connection) -> Dict[str, Any]:
 @router.get("/api/pitches")
 def pitches(request: Request, pitcher: Optional[str] = None, batter: Optional[str] = None,
             pitcher_team: Optional[str] = None, pitch_type: Optional[str] = None, taken_only: bool = True,
-            limit: int = 1500) -> Dict[str, Any]:
+            limit: int = Query(1500, ge=1, le=5000)) -> Dict[str, Any]:
     with _locked(request):
         data = rows(_tools(request).db, pitcher=pitcher, batter=batter, pitcher_team=pitcher_team, pitch_type=pitch_type)
     data = [r for r in data if not (taken_only and r["swing"])]
@@ -156,7 +157,7 @@ def _replay_step(r: Dict[str, Any], model, tracker: LiveTracker, prev: Dict[str,
 
 
 @router.get("/api/live/{game_id}")
-def live(game_id: int, request: Request) -> Dict[str, Any]:
+def live(request: Request, game_id: int = PathParam(ge=0, le=1_000_000)) -> Dict[str, Any]:
     db = _tools(request).db
     with _locked(request):
         game = sorted(rows(db, game_id=game_id), key=lambda r: r["id"])
@@ -175,21 +176,23 @@ def live(game_id: int, request: Request) -> Dict[str, Any]:
 def _conversation(request: Request, conversation_id: Optional[str]) -> Tuple[str, Conversation]:
     """The conversation to continue, or a new one. The oldest are forgotten past MAX_CONVERSATIONS."""
     store: "OrderedDict[str, Conversation]" = request.app.state.conversations
-    if conversation_id and conversation_id in store:
-        store.move_to_end(conversation_id)
-        return conversation_id, store[conversation_id]
-    new_id = uuid.uuid4().hex[:16]
-    store[new_id] = Conversation()
-    while len(store) > MAX_CONVERSATIONS:
-        store.popitem(last=False)
-    return new_id, store[new_id]
+    with request.app.state.conversations_lock:
+        if conversation_id and conversation_id in store:
+            store.move_to_end(conversation_id)
+            return conversation_id, store[conversation_id]
+        new_id = uuid.uuid4().hex[:16]
+        store[new_id] = Conversation()
+        while len(store) > MAX_CONVERSATIONS:
+            store.popitem(last=False)
+        return new_id, store[new_id]
 
 
 @router.post("/api/coach")
 def coach(body: Question, request: Request) -> Dict[str, Any]:
     conversation_id, convo = _conversation(request, body.conversation_id)
     try:
-        out = Coach(_tools(request), request.app.state.chat, _locked(request)).ask(body.question, convo)
+        with convo.lock:  # one question at a time per conversation
+            out = Coach(_tools(request), request.app.state.chat, _locked(request)).ask(body.question, convo)
     except (urllib.error.URLError, OSError) as exc:
         raise HTTPException(503, f"The AI coach needs a model server (see README): {exc}") from None
     return {"conversation_id": conversation_id, "answer": out["answer"],
@@ -200,7 +203,7 @@ def create_app(db: Optional[sqlite3.Connection] = None, chat=None) -> FastAPI:
     app = FastAPI(title="KBO ABS Assist", version="1.0")
     db = db or build_store(Path(os.environ.get("ABS_DB", "data/abs.db")))
     app.state.tools, app.state.chat, app.state.lock = Toolbox(db), chat or http_chat(), threading.Lock()
-    app.state.conversations = OrderedDict()
+    app.state.conversations, app.state.conversations_lock = OrderedDict(), threading.Lock()
     app.include_router(router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

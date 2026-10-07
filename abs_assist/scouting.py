@@ -29,17 +29,20 @@ class Filters:
     ivb: Tuple[float, float] = (-100.0, 100.0)
 
     def keep(self, r: Row) -> bool:
-        return ((self.side is None or r["batter_side"] == self.side)
-                and self.kmh[0] <= r["kmh"] <= self.kmh[1]
-                and self.hb[0] <= r["hb_cm"] <= self.hb[1] and self.ivb[0] <= r["ivb_cm"] <= self.ivb[1])
+        """Pitches without movement data (an optional field) pass the movement filters."""
+        def within(value: Optional[float], bounds: Tuple[float, float]) -> bool:
+            return value is None or bounds[0] <= value <= bounds[1]
+        return ((self.side is None or r["batter_side"] == self.side) and within(r["kmh"], self.kmh)
+                and within(r["hb_cm"], self.hb) and within(r["ivb_cm"], self.ivb))
 
 
 def _rate(part: float, whole: float) -> Optional[float]:
     return round(part / whole, 3) if whole else None
 
 
-def _avg(values: List[float]) -> Optional[float]:
-    return round(sum(values) / len(values), 1) if values else None
+def _avg(values: List[Optional[float]]) -> Optional[float]:
+    known = [v for v in values if v is not None]
+    return round(sum(known) / len(known), 1) if known else None
 
 
 def summarize(kind: str, data: List[Row], total: int) -> Dict[str, Any]:

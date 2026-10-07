@@ -29,6 +29,10 @@ class ZoneRules:
     season: int = 2025
     ball_radius_cm: float = 0.0
 
+    def __post_init__(self) -> None:
+        if self.season not in SEASON_SHARES:
+            raise ValueError(f"No published ABS zone for {self.season}; known seasons: {sorted(SEASON_SHARES)}")
+
     def bounds(self, batter_height_cm: float) -> Tuple[float, float]:
         """(bottom, top) of the zone in cm for a batter of this height."""
         top_share, bottom_share = SEASON_SHARES[self.season]

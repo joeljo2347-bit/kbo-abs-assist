@@ -103,3 +103,63 @@ def test_trimming_keeps_tool_results_with_their_calls():
                            {"role": "assistant", "content": "a"}]
     kept = convo.trimmed()
     assert kept[0]["role"] == "system" and kept[1]["role"] == "user" and len(kept) <= KEEP_MESSAGES + 1
+
+
+def test_tool_arguments_are_checked(tools):
+    pitcher = tools.db.execute("SELECT pitcher FROM pitches LIMIT 1").fetchone()[0]
+    assert tools.call("predict_next_pitch", {"pitcher": pitcher, "balls": -7, "strikes": 9})["error"].startswith("balls")
+    assert tools.call("strikes_lost_at_back", {"team": "LG Tigers"})["error"] == "No team named 'LG Tigers'."
+    assert tools.call("strikes_lost_at_back", {"team": "lg twins"})["taken_pitches"] > 0
+    everyone = tools.call("strikes_lost_at_back", {"team": "all"})["taken_pitches"]
+    assert everyone > tools.call("strikes_lost_at_back", {"team": "LG Twins"})["taken_pitches"]
+    assert tools.find_players("%") == {"pitchers": [], "batters": []}  # % is literal, not "everything"
+
+
+def test_a_long_turn_never_loses_the_question(tools):
+    from abs_assist.coach import Conversation
+    seen = []
+
+    def chat(messages, schema):
+        seen.append(messages)
+        if len(seen) < 8:
+            calls = [{"id": f"c{len(seen)}{i}", "type": "function",
+                      "function": {"name": "find_players", "arguments": '{"query": "LG"}'}} for i in range(6)]
+            return {"content": "", "tool_calls": calls}
+        return {"content": "Done."}
+
+    Coach(tools, chat).ask("Who are the LG Twins pitchers?", Conversation())
+    last = seen[-1]
+    assert last[1] == {"role": "user", "content": "Who are the LG Twins pitchers?"}
+    ids = {c["id"] for m in last if m.get("tool_calls") for c in m["tool_calls"]}
+    assert all(m["tool_call_id"] in ids for m in last if m["role"] == "tool")  # no orphaned results
+
+
+def test_bad_tool_arguments_become_a_recoverable_error(tools):
+    from abs_assist.coach import Conversation
+    broken = {"content": "", "tool_calls": [{"type": "function", "function": {"name": "find_players", "arguments": "{oops"}}]}
+    convo = Conversation()
+    out = Coach(tools, scripted(broken, {"content": "Sorry, try again."})).ask("Who?", convo)
+    assert out["answer"] == "Sorry, try again."
+    tool_msg = next(m for m in convo.messages if m["role"] == "tool")
+    assert "not valid JSON" in tool_msg["content"] and tool_msg["tool_call_id"]
+
+
+def test_a_question_starting_with_check_is_kept(tools):
+    from abs_assist.coach import Conversation
+    convo = Conversation()
+    Coach(tools, scripted({"content": "Fine."})).ask("[check] is this right?", convo)
+    assert [m["content"] for m in convo.messages[1:]] == ["[check] is this right?", "Fine."]
+
+
+def test_vague_pitch_heights_are_sent_back():
+    from abs_assist.coach import problems
+    assert problems("Throw a curveball high on the edge.", "")
+    assert problems("Avoid a high curve over the middle.", "")
+    assert not problems("Throw a curveball, belt-high, on the edge; it keeps his runs low.", "")
+
+
+def test_a_pitcher_sent_to_a_batter_tool_is_pointed_to_the_pitcher_tools(tools):
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    error = tools.call("batter_profile", {"batter": pitcher})["error"]
+    assert "is a pitcher" in error and "pitcher_profile" in error
+    assert "games" in tools.call("strikes_lost_at_back", {"team": "LG Twins"})

@@ -11,10 +11,10 @@ Each block has one job, so a coach can read it at a glance:
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 Block = Dict[str, Any]
-HEIGHTS = {"below the zone": "below", "low": "low", "belt-high": "middle", "high": "high", "above the zone": "above"}
+HEIGHTS = {"below the zone": "below", "knee-high": "low", "belt-high": "middle", "letter-high": "high", "above the zone": "above"}
 SIDES = {"over the middle": "middle", "toward a corner": "inside", "on the edge": "edge", "off the plate": "off"}
 
 
@@ -23,8 +23,8 @@ def _round(x: float) -> int:
     return int(x + 0.5) if x >= 0 else -int(-x + 0.5)
 
 
-def pct(x: float) -> str:
-    return f"{_round(x * 100)}%"
+def pct(x: Optional[float]) -> str:
+    return "–" if x is None else f"{_round(x * 100)}%"
 
 
 def per100(runs: float) -> str:
@@ -99,7 +99,7 @@ def compare(tool: str, results: List[Dict[str, Any]]) -> Block:
     rows = [[r[name], *[pct(r[m]) for m, _ in metrics]] for r in results]
     bold = []
     for col in range(1, len(metrics) + 1):  # bold the leaders as shown; a column where everyone ties has none
-        shown = [_round(results[j][metrics[col - 1][0]] * 100) for j in range(len(results))]
+        shown = [_round((results[j][metrics[col - 1][0]] or 0) * 100) for j in range(len(results))]
         if len(set(shown)) > 1:
             bold += [[col, j] for j, v in enumerate(shown) if v == max(shown)]
     return {"type": "table", "title": "Side by side", "columns": ["", *[label for _, label in metrics]],
@@ -107,7 +107,7 @@ def compare(tool: str, results: List[Dict[str, Any]]) -> Block:
 
 
 BUILDERS: Dict[str, Callable[[Any], List[Block]]] = {
-    "recommend_pitch": recommend, "predict_next_pitch": predict, "strikes_lost_at_back": lost,
+    "recommend_pitch": recommend, "attack_plan": recommend, "predict_next_pitch": predict, "strikes_lost_at_back": lost,
     "pitcher_profile": pitcher, "batter_profile": batter, "take_guide": take_guide}
 
 
@@ -119,11 +119,11 @@ def for_calls(calls: List[Dict[str, Any]]) -> List[Block]:
         data = json.loads(call["result"])
         if call["tool"] in BUILDERS and not (isinstance(data, dict) and "error" in data):
             found.setdefault(call["tool"], []).append(data)
-    for tool, results in found.items():
-        if tool in COMPARE and len(results) > 1:
-            return [compare(tool, results)]
-    last = [c["tool"] for c in calls if c["tool"] in found]
     try:
+        for tool, results in found.items():
+            if tool in COMPARE and len(results) > 1:
+                return [compare(tool, results)]
+        last = [c["tool"] for c in calls if c["tool"] in found]
         return BUILDERS[last[-1]](found[last[-1]][-1]) if last else []
     except (KeyError, IndexError, TypeError, ValueError):
         return []  # a visual must never break an answer

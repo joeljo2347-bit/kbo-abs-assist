@@ -12,7 +12,7 @@ def call(tool, result):
 REC = {"count": "1-2", "batter_value_now_runs": 0.197,
        "best": [{"pitch": "slider, belt-high, on the edge", "batter_value_after_runs": 0.141,
                  "whiff_chance_if_swung_at": 0.21, "called_strike_chance_if_taken": 1.0}],
-       "worst": [{"pitch": "curveball, high, over the middle", "batter_value_after_runs": 0.25}]}
+       "worst": [{"pitch": "curveball, letter-high, over the middle", "batter_value_after_runs": 0.25}]}
 
 
 def test_recommendation_reads_as_headline_zone_tiles_and_an_avoid_note():
@@ -20,7 +20,7 @@ def test_recommendation_reads_as_headline_zone_tiles_and_an_avoid_note():
     assert head["text"] == "slider, belt-high, on the edge"
     assert zone == {"type": "zone", "height": "middle", "side": "edge", "label": "slider"}
     assert [t["value"] for t in tiles["items"]] == ["100%", "21%", "14"] and tiles["items"][2]["note"] == "down from 20 now"
-    assert note["text"] == "Avoid: curveball, high, over the middle (25 runs per 100)."
+    assert note["text"] == "Avoid: curveball, letter-high, over the middle (25 runs per 100)."
 
 
 def test_prediction_bars_are_sorted_with_the_top_one_highlighted():

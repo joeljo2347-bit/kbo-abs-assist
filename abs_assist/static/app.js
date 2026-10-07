@@ -2,7 +2,12 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
-const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error((await r.json()).detail || r.status); return r.json(); };
+// An API error's message: FastAPI sends a string, or a list of field problems for a 422.
+const detail = (body, status) => Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail || `Error ${status}`;
+const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(detail(await r.json(), r.status)); return r.json(); };
+// Each view keeps only its newest request: a slow earlier response never overwrites a newer one.
+const latest = {};
+const fresh = (view) => { latest[view] = (latest[view] || 0) + 1; const mine = latest[view]; return () => latest[view] === mine; };
 const qs = (o) => new URLSearchParams(Object.entries(o).filter(([, v]) => v !== "" && v != null)).toString();
 let META = null;
 
@@ -37,12 +42,15 @@ function showWhy(p) {
 }
 
 async function drawZone() {
+  const current = fresh("zone");
   const data = await get(`/api/pitches?${qs({ pitcher_team: $("zTeam").value, pitcher: $("zPitcher").value, pitch_type: $("zType").value })}`);
+  if (!current()) return;
   $("zCount").textContent = `${data.shown.toLocaleString()} of ${data.total.toLocaleString()} taken pitches`;
   $("zPlot").innerHTML = zoneFrame() + data.points.map((p, i) => dot(p, 3.5, `data-i="${i}" style="cursor:pointer"`)).join("");
   $("zPlot").onclick = (e) => { const i = e.target.dataset.i; if (i !== undefined) showWhy(data.points[i]); };
-  const team = $("zTeam").value || "LG Twins";
-  const lost = await get(`/api/tool/strikes_lost_at_back?${qs({ team })}`);
+  const team = $("zTeam").value || "All teams";
+  const lost = await get(`/api/tool/strikes_lost_at_back?${qs({ team: $("zTeam").value || "all" })}`);
+  if (!current()) return;
   const types = Object.entries(lost.by_pitch_type).map(([k, v]) => `${esc(k)} ${v}`).join(" · ");
   $("zLost").innerHTML = `<div class="big">${lost.strikes_lost}</div><p>${esc(team)} pitches that were inside the zone at the middle of the plate
     but dropped below it by the back edge, so ABS called them balls (${pct(lost.share_of_takes)} of taken pitches).</p><p class="muted">${types}</p>`;
@@ -81,11 +89,12 @@ function recTable(rec) {
 }
 
 async function drawMatchup() {
-  const [b, s] = COUNT, pitcher = $("mPitcher").value, batter = $("mBatter").value;
+  const [b, s] = COUNT, pitcher = $("mPitcher").value, batter = $("mBatter").value, current = fresh("matchup");
   const [rec, pred, take] = await Promise.all([
     get(`/api/tool/recommend_pitch?${qs({ pitcher, batter, balls: b, strikes: s })}`),
     get(`/api/tool/predict_next_pitch?${qs({ pitcher, balls: b, strikes: s, previous_pitch: "" })}`),
     get(`/api/tool/take_guide?${qs({ batter, balls: b, strikes: s })}`)]);
+  if (!current()) return;
   $("mRec").innerHTML = recTable(rec);
   $("mPred").innerHTML = bars(pred) + `<p class="muted">From his history in this kind of count; it updates with every pitch collected.</p>`;
   $("mTake").innerHTML = take.take.length ? `<table>${take.take.map((t) => `<tr><td>${esc(t.pitch)}</td><td class="num">${pct(t.p_called_strike)} called strike if taken</td></tr>`).join("")}</table>`
@@ -128,14 +137,15 @@ function stepLive() {
   $("lAcc").textContent = `${pct(right / seen.length)} (${right}/${seen.length})`;
   const alerts = seen.flatMap((q) => q.alerts.map((a) => `<div class="alert"><b>${esc(q.pitcher)}</b>, ${q.half} ${q.inning}: ${esc(a)}</div>`));
   $("lAlerts").innerHTML = alerts.length ? alerts.reverse().join("") : "None yet.";
-  $("lInfo").textContent = `${esc(GAME.away)} at ${esc(GAME.home)} · pitch ${AT + 1} of ${GAME.pitches.length}`;
+  $("lInfo").textContent = `${GAME.away} at ${GAME.home} · pitch ${AT + 1} of ${GAME.pitches.length}`;
   AT += 1;
 }
 
 async function loadGame() {
   clearInterval(TIMER); TIMER = null; $("lPlay").textContent = "▶ Play";
   $("lInfo").textContent = "Loading…";
-  GAME = await get(`/api/live/${$("lGame").value}`); AT = 0; stepLive();
+  try { GAME = await get(`/api/live/${$("lGame").value}`); } catch (e) { GAME = null; $("lInfo").textContent = String(e.message || e); return; }
+  AT = 0; stepLive();
 }
 
 function setupLive() {
@@ -205,30 +215,34 @@ function bubble(html, who, meta = "") {
   return div;
 }
 
+let PENDING = false;
+
 async function ask() {
   const question = $("cQ").value.trim();
-  if (!question) return;
-  $("cQ").value = ""; $("cAsk").disabled = true;
+  if (!question || PENDING) return;  // one question at a time
+  const current = fresh("coach");
+  PENDING = true; $("cQ").value = ""; $("cAsk").disabled = true;
   bubble(esc(question), "me");
   const wait = bubble("Looking it up…", "ai wait"), started = Date.now();
   try {
     const r = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, conversation_id: CONVO }) });
     const out = await r.json();
-    if (!r.ok) throw new Error(out.detail);
+    if (!current()) return;  // "New conversation" was pressed while this was pending
+    if (!r.ok) throw new Error(detail(out, r.status));
     CONVO = out.conversation_id; wait.remove();
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     const meta = `${out.tools_used.length ? `From: ${[...new Set(out.tools_used)].join(", ")} · ` : ""}${secs}s`;
     const card = out.visuals.length ? `<div class="vcard">${out.visuals.map(visualHtml).join("")}</div>` : "";
     bubble(markdown(out.answer) + card, "ai", meta);
-  } catch (e) { wait.remove(); bubble(esc(String(e.message || e)), "ai"); }
-  $("cAsk").disabled = false; $("cQ").focus();
+  } catch (e) { if (current()) { wait.remove(); bubble(esc(String(e.message || e)), "ai"); } }
+  finally { PENDING = false; $("cAsk").disabled = false; $("cQ").focus(); }
 }
 
 function setupCoach() {
   $("cForm").onsubmit = (e) => { e.preventDefault(); ask(); };
   $("cQ").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } };
-  $("cNew").onclick = () => { CONVO = null; $("cLog").innerHTML = ""; };
+  $("cNew").onclick = () => { fresh("coach"); CONVO = null; PENDING = false; $("cAsk").disabled = false; $("cLog").innerHTML = ""; };
 }
 
 // ---- tabs and start ----
@@ -248,7 +262,7 @@ document.querySelector("nav").onclick = (e) => {
 // Each pitch type keeps one validated color everywhere (color follows the pitch, never its rank).
 const PITCH_COLORS = { fastball: "#2a78d6", slider: "#eb6834", changeup: "#1baf7a", curveball: "#eda100", splitter: "#e87ba4", sinker: "#008300" };
 let SCOUT = null, PICK = null, SIDE = "";
-const num = (id) => Number($(id).value);
+const num = (id) => ($(id).value.trim() === "" ? undefined : Number($(id).value));  // empty box = no limit
 
 function arsenalTable(s) {
   if (!s.arsenal.length) return "No pitches match these filters.";
@@ -272,13 +286,13 @@ function movementChart(s) {
     <text x="446" y="${Y(0) - 6}" font-size="11" text-anchor="end" fill="#666c78">arm side →</text><text x="14" y="${Y(0) - 6}" font-size="11" fill="#666c78">← glove side</text>
     <text x="${X(0) + 6}" y="22" font-size="11" fill="#666c78">↑ rises more</text><text x="${X(0) + 6}" y="386" font-size="11" fill="#666c78">↓ drops more</text>`;
   const order = [...s.points].sort((a, b) => (a.type === PICK) - (b.type === PICK));
-  const dots = order.map((p) => `<circle cx="${X(p.hb)}" cy="${Y(p.ivb)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${p.type}: ${p.kmh} km/h, H ${p.hb} cm, V ${p.ivb} cm</title></circle>`).join("");
+  const dots = order.filter((p) => p.hb != null && p.ivb != null).map((p) => `<circle cx="${X(p.hb)}" cy="${Y(p.ivb)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${esc(p.type)}: ${p.kmh} km/h, H ${p.hb} cm, V ${p.ivb} cm</title></circle>`).join("");
   return grid + axes + dots;
 }
 
 function locationChart(s) {
   const order = [...s.points].sort((a, b) => (a.type === PICK) - (b.type === PICK));
-  return zoneFrame() + order.map((p) => `<circle cx="${sx(p.x)}" cy="${sy(p.h)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${p.type}, ${p.kmh} km/h: ${p.strike ? "in the zone" : "outside the zone"}, ${p.result.replace("_", " ")}</title></circle>`).join("");
+  return zoneFrame() + order.map((p) => `<circle cx="${sx(p.x)}" cy="${sy(p.h)}" r="3.5" fill="${dotColor(p.type)}" fill-opacity=".7"><title>${esc(p.type)}, ${p.kmh} km/h: ${p.strike ? "in the zone" : "outside the zone"}, ${esc(p.result.replace("_", " "))}</title></circle>`).join("");
 }
 
 function drawScout() {
@@ -292,8 +306,11 @@ function drawScout() {
 }
 
 async function loadScout() {
-  SCOUT = await get(`/api/scout?${qs({ pitcher: $("sPitcher").value, opponent: $("sOpp").value, side: SIDE,
+  const current = fresh("scout");
+  const data = await get(`/api/scout?${qs({ pitcher: $("sPitcher").value, opponent: $("sOpp").value, side: SIDE,
     kmh_min: num("kmhMin"), kmh_max: num("kmhMax"), hb_min: num("hbMin"), hb_max: num("hbMax"), ivb_min: num("ivbMin"), ivb_max: num("ivbMax") })}`);
+  if (!current()) return;
+  SCOUT = data;
   if (PICK && !SCOUT.arsenal.some((a) => a.pitch === PICK)) PICK = null;
   drawScout();
 }

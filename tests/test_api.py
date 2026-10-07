@@ -43,3 +43,9 @@ def test_coach_conversations_continue(client):
     other = client.post("/api/coach", json={"question": "New", "conversation_id": "unknown"}).json()
     assert other["conversation_id"] != first["conversation_id"]
     assert client.post("/api/coach", json={"question": ""}).status_code == 422
+
+
+def test_bad_parameters_are_refused_not_crashing(client):
+    assert client.get("/api/pitches", params={"limit": -1}).status_code == 422
+    assert client.get("/api/live/99999999999999999999").status_code == 422
+    assert client.get("/api/tool/predict_next_pitch", params={"pitcher": "x", "balls": -7, "strikes": 9}).status_code == 400

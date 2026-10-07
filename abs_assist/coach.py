@@ -1,7 +1,7 @@
 """The AI coach: plain-language questions answered from the analysis tools.
 
 The model chooses which tools to call and explains their results. It never computes numbers
-itself: a check in code requires every number in the answer to appear in a tool result this turn,
+itself: a check in code requires every number in the answer to appear in a tool result in this conversation,
 and sends an answer that invents one back once. Talks to any OpenAI-compatible chat endpoint,
 configured with MODEL_URL and MODEL_NAME.
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import urllib.request
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -28,7 +29,9 @@ SYSTEM = (
     "several facts, call all the tools you need at once in a single step.\n"
     "- Facts and numbers come only from tool results in this conversation or the ABS rules; never estimate. "
     "Read numbers with each result's how_to_read, and describe locations with the tools' exact words.\n"
-    "- Don't stall. If something isn't specified (say, no pitcher named), make a sensible assumption, say it in "
+    "- Pick the tool for the side asked about. How to pitch a batter: recommend_pitch when a pitcher is named, "
+    "attack_plan when none is. What a hitter should take or lay off: take_guide. Pitchers' stats: pitcher_profile.\n"
+    "- Don't stall. If something isn't specified, make a sensible assumption, say it in "
     "a few words, and answer. Ask a clarifying question only when no useful answer is possible.\n"
     "- If the tools don't have something (ERA, handedness, spin rate), say so plainly and offer what they do have.\n"
     "- When comparing players, give each one's number and say clearly which is higher.\n"
@@ -93,23 +96,63 @@ def unsourced(answer: str, evidence: str) -> List[float]:
             if (pct or v > 3 or v != int(v)) and not _supported(v, known)]
 
 
-CHECK = ("[check] Your last answer used numbers that no tool result supports: {bad}. Rewrite your answer to the "
-         "coach's last question using only numbers from tool results (call a tool if you need one). Reply with the "
-         "rewritten answer only, addressed to the coach; don't mention this check.")
+_PITCH = r"(?:fastball|sinker|slider|changeup|splitter|curveball|curve)s?"
+# A bare "high"/"low" next to a pitch type: the tools only say knee-high, belt-high or letter-high.
+_VAGUE_HEIGHT = re.compile(rf"\b{_PITCH}\W+(?:[a-z]+\W+){{0,2}}?(?<!-)(?:high|low)\b|(?<!-)\b(?:high|low)\W+(?:[a-z]+\W+)?{_PITCH}\b", re.I)
+
+
+def problems(answer: str, evidence: str) -> List[str]:
+    """What the code check sends back: numbers no tool supports, and pitch heights not in the tools' words."""
+    bad = [f"the number {v:g}" for v in unsourced(answer, evidence)]
+    return bad + [f'"{m.group(0)}" (say knee-high, belt-high or letter-high, exactly as the tool does)'
+                  for m in _VAGUE_HEIGHT.finditer(answer)]
+
+
+CHECK = ("[check] Your last answer has things no tool result supports: {bad}. Rewrite your answer to the "
+         "coach's last question using only numbers and locations from tool results (call a tool if you need one). "
+         "Reply with the rewritten answer only, addressed to the coach; don't mention this check.")
 
 
 @dataclass
 class Conversation:
-    """One coach's conversation: the message history and every tool result so far."""
+    """One coach's conversation: the message history and every tool result so far. `lock` keeps two
+    requests from writing into the same history at once."""
     messages: List[Dict[str, Any]] = field(default_factory=lambda: [{"role": "system", "content": SYSTEM}])
     evidence: str = ""
+    question_at: int = 1
+    lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def trimmed(self) -> List[Dict[str, Any]]:
-        """The system prompt plus recent turns, starting at a user message so tool results keep their calls."""
-        recent = self.messages[1:][-KEEP_MESSAGES:]
-        while recent and recent[0]["role"] != "user":
-            recent = recent[1:]
-        return [self.messages[0], *recent]
+        """The system prompt, as much earlier conversation as fits, and the current turn: its question
+        always, then its most recent tool exchanges (a call is never separated from its results)."""
+        turn = _fit_turn(self.messages[self.question_at:], KEEP_MESSAGES)
+        earlier = self.messages[1:self.question_at][-max(KEEP_MESSAGES - len(turn), 0):]
+        while earlier and earlier[0]["role"] != "user":
+            earlier = earlier[1:]
+        return [self.messages[0], *earlier, *turn]
+
+
+def _fit_turn(turn: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    """The question plus whole assistant steps (an assistant message and its tool results), newest kept."""
+    steps: List[List[Dict[str, Any]]] = []
+    for m in turn[1:]:
+        if m["role"] == "assistant" or not steps:
+            steps.append([])
+        steps[-1].append(m)
+    while len(steps) > 1 and 1 + sum(map(len, steps)) > limit:
+        steps.pop(0)
+    return [turn[0], *[m for step in steps for m in step]]
+
+
+def _arguments(raw: Any) -> Tuple[Dict[str, Any], Optional[str]]:
+    """A tool call's arguments as a dict, or an error the model can read and recover from."""
+    if isinstance(raw, dict):
+        return raw, None
+    try:
+        args = json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        return {}, "The tool arguments were not valid JSON; call the tool again with a JSON object."
+    return (args, None) if isinstance(args, dict) else ({}, "Tool arguments must be a JSON object.")
 
 
 class Coach:
@@ -117,13 +160,16 @@ class Coach:
         """`lock` guards the database during tool calls, not while waiting on the model."""
         self.tools, self.chat, self.lock = tools, chat, lock or nullcontext()
 
-    def _run_tools(self, msg: Dict[str, Any], convo: Conversation, calls: List[Dict[str, Any]]) -> None:
+    def _run_tools(self, tool_calls: List[Dict[str, Any]], convo: Conversation, calls: List[Dict[str, Any]]) -> None:
         """Call each requested tool and record the call and its result in the conversation."""
-        for call in msg["tool_calls"]:
+        for call in tool_calls:
             fn = call["function"]
-            args = json.loads(fn.get("arguments") or "{}")
-            with self.lock:
-                result = json.dumps(self.tools.call(fn["name"], args))
+            args, problem = _arguments(fn.get("arguments"))
+            if problem:
+                result = json.dumps({"error": problem})
+            else:
+                with self.lock:
+                    result = json.dumps(self.tools.call(fn["name"], args))
             convo.messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
             calls.append({"tool": fn["name"], "args": args, "result": result})
             convo.evidence += result
@@ -131,36 +177,42 @@ class Coach:
     def _step(self, convo: Conversation, calls: List[Dict[str, Any]]) -> Optional[str]:
         """One model turn: run its tool calls (None) or return its answer."""
         msg = self.chat(convo.trimmed(), _openai_tools())
+        tool_calls = msg.get("tool_calls") or []
+        for i, call in enumerate(tool_calls):
+            call.setdefault("id", f"call_{len(convo.messages)}_{i}")
         turn = {"role": "assistant", "content": msg.get("content") or ""}
-        convo.messages.append({**turn, "tool_calls": msg["tool_calls"]} if msg.get("tool_calls") else turn)
-        if msg.get("tool_calls"):
-            self._run_tools(msg, convo, calls)
+        convo.messages.append({**turn, "tool_calls": tool_calls} if tool_calls else turn)
+        if tool_calls:
+            self._run_tools(tool_calls, convo, calls)
             return None
         return turn["content"]
 
     def ask(self, question: str, convo: Optional[Conversation] = None) -> Dict[str, Any]:
         convo = convo or Conversation()
         convo.messages.append({"role": "user", "content": question})
+        convo.question_at = len(convo.messages) - 1
         calls: List[Dict[str, Any]] = []
-        answer, corrected = "", False
+        answer, check = "", None
         for _ in range(MAX_ROUNDS):
             answer = self._step(convo, calls) or ""
             if not answer:
                 continue
-            bad = unsourced(answer, convo.evidence + " " + RULE_FACTS)
-            if not bad or corrected:
+            bad = problems(answer, convo.evidence + " " + RULE_FACTS)
+            if not bad or check is not None:
                 break
-            convo.messages.append({"role": "user", "content": CHECK.format(bad=bad)})
-            corrected = True
-        _drop_rejected(convo)
-        return {"answer": answer or "I couldn't finish that within the step limit.", "corrected": corrected,
+            check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
+            convo.messages.append(check)
+        _drop_rejected(convo, check)
+        return {"answer": answer or "I couldn't finish that within the step limit.", "corrected": check is not None,
                 "tools_used": [c["tool"] for c in calls], "calls": calls, "visuals": visuals.for_calls(calls),
                 "conversation": convo}
 
 
-def _drop_rejected(convo: Conversation) -> None:
-    """Remove a rejected answer and its [check] message, so later turns never build on it."""
+def _drop_rejected(convo: Conversation, check: Optional[Dict[str, Any]]) -> None:
+    """Remove a rejected answer and the check that sent it back, so later turns never build on it.
+    The check is found by identity, so a coach's own question that happens to start with "[check]"
+    is never touched."""
     for i, m in enumerate(convo.messages):
-        if m["role"] == "user" and m["content"].startswith("[check]"):
+        if m is check:
             del convo.messages[i - 1:i + 1]
             return

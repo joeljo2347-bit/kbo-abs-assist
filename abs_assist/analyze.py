@@ -61,7 +61,8 @@ def lost_at_back(data: List[Row]) -> Dict[str, Any]:
     by_type: Dict[str, int] = defaultdict(int)
     for r in lost:
         by_type[r["pitch_type"]] += 1
-    return {"taken_pitches": len(taken), "strikes_lost": len(lost),
+    return {"how_to_read": "Totals over every game in the data (games); not per game or per season.",
+            "games": len({r["game_id"] for r in data}), "taken_pitches": len(taken), "strikes_lost": len(lost),
             "share_of_takes": round(len(lost) / max(len(taken), 1), 4),
             "by_pitch_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1]))}
 

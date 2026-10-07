@@ -24,8 +24,9 @@ RULES = ZoneRules(2025)
 
 @dataclass
 class Calibration:
-    """The simulation's behavioral knobs. The defaults were fitted to the KBO's official 2026 league
-    totals by evals/calibrate.py (strikeout, walk and home-run rates, batting average, pitches per PA)."""
+    """The simulation's behavioral knobs. whiff, hit and power were fitted to the KBO's official 2026
+    league totals by evals/calibrate.py (strikeout, walk and home-run rates, batting average, pitches
+    per PA); foul, zone_swing and chase are fixed at typical pro rates."""
     whiff: float = 0.58       # scales every whiff chance
     foul: float = 0.55        # chance a contacted swing is a foul
     hit: float = 0.28         # base chance a ball in play is a hit
