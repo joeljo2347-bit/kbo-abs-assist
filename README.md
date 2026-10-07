@@ -141,9 +141,10 @@ came out:
 | [2](evals/heldout2-before/results.md) | after adding leaderboards, league averages and the arsenal | 3/10 |
 | [3](evals/heldout3-before/results.md) | after readable ranks, data periods and pitch roles | 4/10 |
 | [4](evals/heldout4-first-run/results.md) | after verdicts worked out in code (above or below most, take or swing) | 6/10 |
-| [5](evals/heldout5/results.md) | after count and runs checks, splits, strikeout and walk rates | **6/10** |
+| [5](evals/heldout5/results.md) | after count and runs checks, splits, strikeout and walk rates | 6/10 |
+| [6](evals/heldout6/results.md) | after team-ranking and take-or-swing checks in code | **5/10** |
 
-The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
+On new questions the coach has climbed from 2/10 to about 5-6/10 and has now levelled off there. The first held-out set exposed the original ten-question score (9/10, [rounds 1-6](evals/blind-round6/results.md))
 as overfit. The fixes since then are general: the model talks, and code decides anything that can
 be computed (whether a player is above or below most of the league, whether to take or swing, how
 the zone moved between seasons), checks that every number comes from a tool, that the count asked
