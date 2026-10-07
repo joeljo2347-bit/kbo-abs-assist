@@ -33,6 +33,8 @@ SYSTEM = (
     "when none is. What a hitter should take or lay off: take_guide. What a pitcher is likely to throw: "
     "predict_next_pitch. Speeds, pitch types and what follows a pitch: pitcher_arsenal. Player stats: pitcher_profile "
     "or batter_profile. Who or which team is highest or lowest at anything: leaderboard. How ABS works: abs_rules.\n"
+    "- When a tool result has an 'answer' (written by code), build your reply on it: keep its pitch, its full "
+    "location, its verdict and its numbers exactly as written.\n"
     "- Whether a number is high or low: use the tool's verdict (worked out in code) and say the value and the league "
     "average. Never work out a direction or a count of players yourself; take it from the tool.\n"
     "- If the question asks for a split the tools don't have (runners on base, home or away, by month), say it isn't "
@@ -181,11 +183,29 @@ def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
     return []
 
 
-def stated_verdict(calls: List[Dict[str, Any]]) -> str:
-    """The take guide's own verdict, in its words: used when the model contradicts it twice."""
-    guide = json.loads(next(c["result"] for c in reversed(calls) if c["tool"] == "take_guide"))
-    verdict, _, detail = str(guide["summary"]).removeprefix("Verdict: ").partition(". ")
-    return f"On {guide['count']}: {verdict}. {detail}"
+def code_answer(calls: List[Dict[str, Any]]) -> str:
+    """The code-written answer of the latest tool that has one: shown when the model's rewrite still fails."""
+    for c in reversed(calls):
+        try:
+            text = json.loads(c["result"]).get("answer")
+        except (ValueError, AttributeError):
+            continue
+        if text:
+            return str(text)
+    return ""
+
+
+def location_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """The recommended pitch named without its full location (height and side, as the tool gives them)."""
+    plain = re.sub(r"[*_`]", "", answer).replace("\u2011", "-").lower()
+    for c in reversed(calls):
+        if c["tool"] in ("recommend_pitch", "attack_plan"):
+            best = (json.loads(c["result"]).get("best") or [{}])[0].get("pitch", "")
+            kind, *where = [w.strip() for w in best.split(",")]
+            if kind and kind in plain and not all(w in plain for w in where):
+                return [f"the recommended {kind} without its full location ({', '.join(where)})"]
+            return []
+    return []
 
 
 def unlabeled_runs(answer: str, evidence: str) -> List[str]:
@@ -305,9 +325,10 @@ class Coach:
                 continue
             bad = (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
                    + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
+                   + location_problems(answer, calls)
                    + ([] if convo.evidence else [UNLOOKED]))
             if not bad or check is not None:
-                final = answer if not (check and stance_problems(answer, calls)) else stated_verdict(calls)
+                final = answer if not (check and bad) else (code_answer(calls) or answer)
                 break
             check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
             convo.messages.append(check)

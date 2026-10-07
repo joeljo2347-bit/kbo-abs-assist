@@ -213,3 +213,33 @@ def test_markdown_does_not_hide_contradictions():
     from abs_assist.coach import stance_problems
     guide = [{"tool": "take_guide", "result": json.dumps({"summary": "Verdict: swing at strikes, take balls. x"})}]
     assert stance_problems("He should **take** the first pitch; verdict: swing at strikes.", guide)
+
+
+def test_every_main_tool_writes_its_own_answer(tools):
+    from abs_assist.visuals import for_calls
+    pitcher, batter = tools.find_players("LG Twins")["pitchers"][0], tools.find_players("KT Wiz")["batters"][0]
+    for name, args in (("recommend_pitch", {"pitcher": pitcher, "batter": batter, "balls": 1, "strikes": 2}),
+                       ("attack_plan", {"batter": batter, "balls": 0, "strikes": 2}),
+                       ("take_guide", {"batter": batter, "balls": 0, "strikes": 0}),
+                       ("leaderboard", {"metric": "chase_rate", "who": "team_batting"}),
+                       ("pitcher_arsenal", {"pitcher": pitcher}),
+                       ("predict_next_pitch", {"pitcher": pitcher, "balls": 0, "strikes": 0}),
+                       ("strikes_lost_at_back", {"team": "LG Twins"})):
+        result = tools.call(name, args)
+        assert result.get("answer"), name
+        assert for_calls([{"tool": name, "args": args, "result": json.dumps(result)}]), name
+
+
+def test_a_rewrite_that_still_fails_is_replaced_by_the_code_answer(tools):
+    pitcher, batter = tools.find_players("LG Twins")["pitchers"][0], tools.find_players("KT Wiz")["batters"][0]
+    args = {"pitcher": pitcher, "batter": batter, "balls": 1, "strikes": 2}
+    queue = [call("recommend_pitch", **args), {"content": "Throw him a 97% heater."}, {"content": "Still a 97% heater."}]
+    out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"What should {pitcher} throw {batter} on 1-2?")
+    assert out["answer"] == tools.call("recommend_pitch", args)["answer"]
+
+
+def test_the_recommended_pitch_keeps_its_location():
+    from abs_assist.coach import location_problems
+    calls = [{"tool": "recommend_pitch", "result": json.dumps({"best": [{"pitch": "sinker, letter-high, on the edge"}]})}]
+    assert location_problems("Throw the sinker on the edge.", calls)
+    assert not location_problems("Throw the sinker letter‑high, on the edge.", calls)

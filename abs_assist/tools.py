@@ -6,6 +6,7 @@ import sqlite3
 import unicodedata
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from abs_assist import answers
 from abs_assist.analyze import batter_profile, lost_at_back, pitcher_profile, rows
 from abs_assist.compare import BATTER_METRICS, PITCHER_METRICS, League, arsenal, context, leaderboard, low_pitch_calls
 from abs_assist.predict import PitchPredictor
@@ -106,8 +107,9 @@ class Toolbox:
             "take_guide": lambda batter, balls, strikes: self.strategy.take_guide(batter, int(balls), int(strikes)),
             "attack_plan": lambda batter, balls, strikes: self.strategy.attack_plan(batter, int(balls), int(strikes)),
             "predict_next_pitch": lambda pitcher, balls, strikes, previous_pitch="", batter_side="": {
-                k: round(v, 3) for k, v in self.predictor.predict(
-                    pitcher, int(balls), int(strikes), previous_pitch, batter_side).items()},
+                "how_to_read": "probabilities: the chance (0-1) of each pitch type next, most likely first.",
+                "probabilities": {k: round(v, 3) for k, v in self.predictor.predict(
+                    pitcher, int(balls), int(strikes), previous_pitch, batter_side).items()}},
             "strikes_lost_at_back": lambda team="": lost_at_back(rows(self.db, pitcher_team=team or None)),
         }
 
@@ -228,6 +230,9 @@ class Toolbox:
                 args = {**args, column: found}
         try:
             out = self.run[name](**args)
-            return {**out, "data_covers": self.covers()} if isinstance(out, dict) and "error" not in out else out
+            if not isinstance(out, dict) or "error" in out:
+                return out
+            answer = answers.write(name, out)
+            return {**({"answer": answer} if answer else {}), **out, "data_covers": self.covers()}
         except Exception as exc:  # the model reads the error and can try again; the request never fails
             return {"error": f"{name} failed: {exc}"}

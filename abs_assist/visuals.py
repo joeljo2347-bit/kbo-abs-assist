@@ -60,9 +60,10 @@ def _bars(title: str, data: Dict[str, float], fmt: Callable[[float], str]) -> Bl
         {"label": k, "value": v, "display": fmt(v), "highlight": i == 0} for i, (k, v) in enumerate(items)]}
 
 
-def predict(r: Dict[str, float]) -> List[Block]:
-    top = max(r, key=lambda k: r[k]) if r else ""
-    return [_bars(f"What he throws next: {top} most likely", r, pct)] if r else []
+def predict(r: Dict[str, Any]) -> List[Block]:
+    probs = r.get("probabilities") or {}
+    top = max(probs, key=lambda k: probs[k]) if probs else ""
+    return [_bars(f"What he throws next: {top} most likely", probs, pct)] if probs else []
 
 
 def lost(r: Dict[str, Any]) -> List[Block]:

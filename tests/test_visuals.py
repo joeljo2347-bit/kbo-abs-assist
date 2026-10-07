@@ -24,7 +24,7 @@ def test_recommendation_reads_as_headline_zone_tiles_and_an_avoid_note():
 
 
 def test_prediction_bars_are_sorted_with_the_top_one_highlighted():
-    (bars,) = visuals.for_calls([call("predict_next_pitch", {"slider": 0.2, "fastball": 0.7, "curveball": 0.1})])
+    (bars,) = visuals.for_calls([call("predict_next_pitch", {"probabilities": {"slider": 0.2, "fastball": 0.7, "curveball": 0.1}})])
     assert [i["label"] for i in bars["items"]] == ["fastball", "slider", "curveball"]
     assert [i["highlight"] for i in bars["items"]] == [True, False, False] and bars["items"][0]["display"] == "70%"
 

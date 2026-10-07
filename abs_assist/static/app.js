@@ -102,7 +102,7 @@ async function drawMatchup() {
     get(`/api/tool/take_guide?${qs({ batter, balls: b, strikes: s })}`)]);
   if (!current()) return;
   $("mRec").innerHTML = recTable(rec);
-  $("mPred").innerHTML = bars(pred) + `<p class="muted">From his history in this kind of count; it updates with every pitch collected.</p>`;
+  $("mPred").innerHTML = bars(pred.probabilities) + `<p class="muted">From his history in this kind of count; it updates with every pitch collected.</p>`;
   $("mTake").innerHTML = take.take.length ? `<table>${take.take.map((t) => `<tr><td>${esc(t.pitch)}</td><td class="num">${pct(t.p_called_strike)} called strike if taken</td></tr>`).join("")}</table>`
     : `<p class="muted">Nothing clearly better to take in this count.</p>`;
 }
