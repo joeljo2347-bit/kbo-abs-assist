@@ -275,7 +275,7 @@ def heldout12_questions(tb: Toolbox) -> List[str]:
         "Which team's pitchers have the highest whiff rate?",
         f"{kia['pitchers'][5]} facing {hanwha['batters'][8]}, 1-0 count. What's the pitch?",
         f"Who chases more, {lotte['batters'][8]} or {doosan['batters'][8]}?",
-        f"How hard does {hanwha['pitchers'][6]} throw?",
+        f"How hard does {hanwha['pitchers'][4]} throw?",
         f"What's {nc['batters'][8]}'s slugging percentage?",
         "Who hits the most home runs on the KIA Tigers?",
         f"Should {lotte['batters'][2]} take more pitches on 2-1?",
