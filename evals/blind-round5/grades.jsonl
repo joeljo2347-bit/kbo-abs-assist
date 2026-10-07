@@ -1,7 +1,7 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says 'high and outside' but the tool lists pitches above the zone toward a corner or over the middle, not outside."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Summary says 'high in the zone' though the tool lists these pitches as above the zone (p_called_strike 0), and it drops two of the four take pitches."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}

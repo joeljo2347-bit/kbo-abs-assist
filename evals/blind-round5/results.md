@@ -11,6 +11,6 @@
 | What is Jung Woo-jin likely to throw when he's behind 2-0 after a fastball? | yes |  |
 | What should Kang Ha-jun throw Jang Ji-ho on a 1-2 count? | yes |  |
 | What's Lee Do-yun's ERA this season? | yes |  |
-| Which pitches should Oh Ji-hoon lay off on the first pitch of an at-bat? | no | Says 'high and outside' but the tool lists pitches above the zone toward a corner or over the middle, not outside. |
+| Which pitches should Oh Ji-hoon lay off on the first pitch of an at-bat? | no | Summary says 'high in the zone' though the tool lists these pitches as above the zone (p_called_strike 0), and it drops two of the four take pitches. |
 | Who are the LG Twins pitchers? | yes |  |
 | Who misses more bats, Kang Ha-jun or Jung Woo-jin? | yes |  |

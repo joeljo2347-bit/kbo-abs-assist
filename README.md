@@ -136,13 +136,14 @@ result, and the answer, with no expected answers.
 | [2](evals/blind-round2/results.md) | tolerant name lookup; every tool explains its fields | 8/10 |
 | [3](evals/blind-round3/results.md) | conversations, shorter answers, calibrated league | 8/10 |
 | [4](evals/blind-round4/results.md) | a league-wide attack plan when no pitcher is named; locations checked in code | 6/10 |
-| [5](evals/blind/results.md) | each question routed to the right side's tool; tools say when a name is the other kind of player | **9/10** |
+| [5](evals/blind-round5/results.md) | each question routed to the right side's tool; tools say when a name is the other kind of player | 9/10 |
+| [6](evals/blind/results.md) | fixes from an independent code review (stricter checks, safer failures); rerun to confirm | **9/10** |
 
 Round 4 went backwards: the new "no pitcher, use the attack plan" rule pulled the model onto that
 tool for hitter-side questions too. Round 5 fixed the cause rather than the questions. The same ten
 questions are used every round, so treat the later scores as progress on known failure types,
-not a fresh test. Still failing: one answer called pitches "high in the zone" that the tool put
-above it, and left out half the pitches to take.
+not a fresh test. Still failing: the hitter-side "what to lay off" question, where the answer
+describes the tool's above-the-zone pitches in its own words ("high and outside").
 
 ## Run it
 
