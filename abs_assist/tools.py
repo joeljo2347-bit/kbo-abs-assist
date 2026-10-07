@@ -95,6 +95,26 @@ class Toolbox:
         partial = [n for n in names if wanted in normalize(n)]
         return exact[0] if exact else partial[0] if len(partial) == 1 else None
 
+    def _typed(self, name: str, args: Dict[str, Any]) -> Optional[str]:
+        """An error if an argument is unknown, or text where text is expected isn't."""
+        params = next(t["parameters"] for t in SCHEMA if t["name"] == name)
+        for key, value in args.items():
+            if key not in params:
+                return f"{name} has no argument {key!r}; its arguments are {', '.join(params)}."
+            if params[key]["type"] == "string" and not isinstance(value, str):
+                return f"{key} must be text."
+        return None
+
+    def _pitch_context(self, args: Dict[str, Any]) -> Any:
+        """predict_next_pitch's previous pitch and batter side, normalized, or an error dict."""
+        prev = normalize(args.get("previous_pitch") or "")
+        side = (args.get("batter_side") or "").strip().upper()[:1]
+        if prev and prev not in self.predictor.types:
+            return {"error": f"previous_pitch must be one of {', '.join(sorted(self.predictor.types))}, or empty."}
+        if side not in ("", "R", "L"):
+            return {"error": "batter_side must be R, L or empty."}
+        return {**args, "previous_pitch": prev, "batter_side": side}
+
     def _checked(self, args: Dict[str, Any]) -> Any:
         """Arguments with names resolved and counts checked, or an error dict."""
         for key, top in (("balls", 3), ("strikes", 2)):
@@ -123,7 +143,10 @@ class Toolbox:
     def call(self, name: str, args: Dict[str, Any]) -> Any:
         if name not in self.run:
             return {"error": f"Unknown tool {name}."}
-        args = self._checked(args)
+        problem = self._typed(name, args)
+        if problem:
+            return {"error": problem}
+        args = self._checked(self._pitch_context(args) if name == "predict_next_pitch" else args)
         if "error" in args:
             return args
         for column in ("pitcher", "batter"):
@@ -134,5 +157,5 @@ class Toolbox:
                 args = {**args, column: found}
         try:
             return self.run[name](**args)
-        except (TypeError, KeyError, ValueError) as exc:
+        except Exception as exc:  # the model reads the error and can try again; the request never fails
             return {"error": f"{name} failed: {exc}"}

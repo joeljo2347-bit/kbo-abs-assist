@@ -45,7 +45,7 @@ Called by the KBO's published 2025 zone rules, on a season calibrated to the 202
 | View | For whom | What it shows |
 |---|---|---|
 | **Scouting** | Advance scouts | A pitcher (left) against a team (right), filtered by batter side, speed and break: his arsenal ranked from most to least used (velocity, horizontal and vertical break, zone, chase, whiff, called-strike rates, average against), a pitch-movement chart and where his pitches cross the zone |
-| **ABS zone** | Analysts | Every taken pitch against the batter's own zone; click one to see exactly why ABS called it ("0.4 cm below the bottom edge at the back of the plate") |
+| **ABS zone** | Analysts | Every taken pitch against the batter's own zone; click one to see exactly why ABS called it ("Ball: 0.4 cm outside the bottom, back of plate edge") |
 | **Matchup** | Pitching coaches | For a pitcher, batter and count: the pitches and locations that give the hitter the least, the next-pitch prediction, and the hitter's take guide |
 | **Live game** | Dugout | A game replayed pitch by pitch: the prediction before each pitch, what was thrown, and live alerts against the pitcher's own baseline |
 | **AI coach** | Staff | A conversation: ask, follow up ("why?", "and with two strikes?"), and get short answers with the key numbers laid out next to them |

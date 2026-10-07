@@ -37,6 +37,10 @@ class Report:
 
 
 RESULTS = {"ball", "called_strike", "whiff", "foul", "out", "single", "double", "home_run"}
+TAKEN = {"ball", "called_strike"}  # every other result needs a swing
+# The pitch results a plate appearance can end on.
+ENDS_ON = {"walk": {"ball"}, "strikeout": {"called_strike", "whiff"}, "out": {"out"}, "single": {"single"},
+           "double": {"double"}, "home_run": {"home_run"}}
 PA_RESULTS = {"walk", "strikeout", "out", "single", "double", "home_run"}
 CHOICES = {"half": {"top", "bottom"}, "result": RESULTS}
 
@@ -64,7 +68,18 @@ def validate(event: Dict[str, Any]) -> Optional[str]:
     for name, allowed in CHOICES.items():
         if event[name] not in allowed:
             return f"{name}={event[name]!r} is not one of {sorted(allowed)}"
-    return _optional_problem(event)
+    return _optional_problem(event) or _contradiction(event)
+
+
+def _contradiction(event: Dict[str, Any]) -> Optional[str]:
+    """Fields that can't all be true at once: a swing on a called pitch, or a plate appearance that
+    ends on a pitch result that can't end it."""
+    if event["swing"] == (event["result"] in TAKEN):
+        return f"result={event['result']!r} contradicts swing={event['swing']}"
+    ended = event.get("pa_result")
+    if ended and event["result"] not in ENDS_ON[ended]:
+        return f"pa_result={ended!r} can't follow result={event['result']!r}"
+    return None
 
 
 def _optional_problem(event: Dict[str, Any]) -> Optional[str]:

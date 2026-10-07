@@ -4,7 +4,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const pct = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
 // An API error's message: FastAPI sends a string, or a list of field problems for a 422.
 const detail = (body, status) => Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail || `Error ${status}`;
-const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(detail(await r.json(), r.status)); return r.json(); };
+// The body as JSON; a non-JSON error page (e.g. a proxy's 502) becomes a readable error instead of a parse error.
+const body = (r) => r.json().catch(() => ({ detail: `Error ${r.status}` }));
+const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(detail(await body(r), r.status)); return r.json(); };
 // Each view keeps only its newest request: a slow earlier response never overwrites a newer one.
 const latest = {};
 const fresh = (view) => { latest[view] = (latest[view] || 0) + 1; const mine = latest[view]; return () => latest[view] === mine; };
@@ -57,14 +59,18 @@ async function drawZone() {
 }
 
 // ---- selects ----
+// The club the views open on: the LG Twins when the data has them, else the first team.
+const homeTeam = () => (META.teams.includes("LG Twins") ? "LG Twins" : META.teams[0] || "");
+const roster = (team) => META.roster[team] || { pitchers: [], batters: [] };
+
 function fill(sel, items, first) {
   sel.innerHTML = (first ? `<option value="">${first}</option>` : "") + items.map((x) => `<option>${esc(x)}</option>`).join("");
 }
 
 function setupZone() {
   fill($("zTeam"), META.teams, "All teams");
-  $("zTeam").value = "LG Twins";
-  const pitchers = () => fill($("zPitcher"), $("zTeam").value ? META.roster[$("zTeam").value].pitchers : [], "All pitchers");
+  $("zTeam").value = homeTeam();
+  const pitchers = () => fill($("zPitcher"), roster($("zTeam").value).pitchers, "All pitchers");
   pitchers();
   fill($("zType"), ["fastball", "sinker", "slider", "changeup", "splitter", "curveball"], "All pitch types");
   $("zTeam").onchange = () => { pitchers(); drawZone(); };
@@ -104,8 +110,8 @@ async function drawMatchup() {
 function setupMatchup() {
   const teams = META.teams;
   fill($("mTeam"), teams); fill($("mBTeam"), teams);
-  $("mTeam").value = "LG Twins"; $("mBTeam").value = teams.find((t) => t !== "LG Twins");
-  const refill = () => { fill($("mPitcher"), META.roster[$("mTeam").value].pitchers); fill($("mBatter"), META.roster[$("mBTeam").value].batters); };
+  $("mTeam").value = homeTeam(); $("mBTeam").value = teams.find((t) => t !== homeTeam()) || homeTeam();
+  const refill = () => { fill($("mPitcher"), roster($("mTeam").value).pitchers); fill($("mBatter"), roster($("mBTeam").value).batters); };
   refill();
   $("mCounts").innerHTML = [0, 1, 2, 3].flatMap((b) => [0, 1, 2].map((s) => `<button data-c="${b}-${s}">${b}-${s}</button>`)).join("");
   $("mCounts").onclick = (e) => { const c = e.target.dataset.c; if (!c) return; COUNT = c.split("-").map(Number);
@@ -144,13 +150,17 @@ function stepLive() {
 async function loadGame() {
   clearInterval(TIMER); TIMER = null; $("lPlay").textContent = "▶ Play";
   $("lInfo").textContent = "Loading…";
-  try { GAME = await get(`/api/live/${$("lGame").value}`); } catch (e) { GAME = null; $("lInfo").textContent = String(e.message || e); return; }
-  AT = 0; stepLive();
+  const current = fresh("live");
+  let game;
+  try { game = await get(`/api/live/${$("lGame").value}`); } catch (e) { if (current()) { GAME = null; $("lInfo").textContent = String(e.message || e); } return; }
+  if (!current()) return;  // a newer game was picked while this one loaded
+  GAME = game; AT = 0; stepLive();
 }
 
 function setupLive() {
-  $("lGame").max = META.games - 1; $("lGame").value = Math.floor(META.games * 0.9);
-  $("lLoad").onclick = loadGame; $("lStep").onclick = stepLive;
+  fill($("lGame"), META.game_ids.map(String));
+  $("lGame").value = String(META.game_ids[Math.floor(META.game_ids.length * 0.9)] ?? "");
+  $("lLoad").onclick = loadGame; $("lGame").onchange = loadGame; $("lStep").onclick = stepLive;
   $("lPlay").onclick = () => {
     if (TIMER) { clearInterval(TIMER); TIMER = null; $("lPlay").textContent = "▶ Play"; return; }
     TIMER = setInterval(stepLive, 700); $("lPlay").textContent = "❚❚ Pause";
@@ -227,7 +237,7 @@ async function ask() {
   try {
     const r = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, conversation_id: CONVO }) });
-    const out = await r.json();
+    const out = await body(r);
     if (!current()) return;  // "New conversation" was pressed while this was pending
     if (!r.ok) throw new Error(detail(out, r.status));
     CONVO = out.conversation_id; wait.remove();
@@ -236,7 +246,7 @@ async function ask() {
     const card = out.visuals.length ? `<div class="vcard">${out.visuals.map(visualHtml).join("")}</div>` : "";
     bubble(markdown(out.answer) + card, "ai", meta);
   } catch (e) { if (current()) { wait.remove(); bubble(esc(String(e.message || e)), "ai"); } }
-  finally { PENDING = false; $("cAsk").disabled = false; $("cQ").focus(); }
+  finally { if (current()) { PENDING = false; $("cAsk").disabled = false; $("cQ").focus(); } }  // a stale request leaves the newer one's state alone
 }
 
 function setupCoach() {
@@ -254,6 +264,7 @@ document.querySelector("nav").onclick = (e) => {
 
 (async () => {
   META = await get("/api/meta");
+  if (!META.teams.length) { $("meta").textContent = "No pitches collected yet."; return; }
   $("meta").textContent = `Simulated season calibrated to KBO 2026 league totals · ${META.games} games · ${META.pitches.toLocaleString()} pitches · 2025 ABS zone rules`;
   setupScout(); setupZone(); setupMatchup(); setupLive(); setupCoach();
 })();
@@ -316,9 +327,9 @@ async function loadScout() {
 }
 
 function setupScout() {
-  fill($("sTeam"), META.teams); $("sTeam").value = "LG Twins";
+  fill($("sTeam"), META.teams); $("sTeam").value = homeTeam();
   fill($("sOpp"), META.teams, "All opponents");
-  const pitchers = () => { fill($("sPitcher"), META.roster[$("sTeam").value].pitchers); };
+  const pitchers = () => { fill($("sPitcher"), roster($("sTeam").value).pitchers); };
   pitchers();
   $("sTeam").onchange = () => { pitchers(); PICK = null; loadScout(); };
   $("sPitcher").onchange = () => { PICK = null; loadScout(); };

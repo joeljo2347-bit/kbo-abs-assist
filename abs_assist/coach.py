@@ -42,8 +42,9 @@ SYSTEM = (
     "numbers that matter most, written as percentages where they are chances. Don't suggest follow-up questions."
 )
 # Published ABS rule numbers the coach may quote without a tool call (zone shares, widths, plate depth).
-RULE_FACTS = "55.75% 27.04% 56.35% 27.64% 47.18 43.18 2 21.59"
-_NUMBER = re.compile(r"(?<![\w.,])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[ \u00a0\u202f]?%)?")
+RULE_FACTS = "55.75% 27.04% 56.35% 27.64% 47.18 43.18 2 21.59 2024 2025"
+# Numbers, including baseball-style ".412" (a dot not preceded by a digit or letter).
+_NUMBER = re.compile(r"(?<![\w,.])(?:\.\d+|(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?:[ \u00a0\u202f]?%)?")
 Chat = Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]
 
 
@@ -97,8 +98,11 @@ def unsourced(answer: str, evidence: str) -> List[float]:
 
 
 _PITCH = r"(?:fastball|sinker|slider|changeup|splitter|curveball|curve)s?"
-# A bare "high"/"low" next to a pitch type: the tools only say knee-high, belt-high or letter-high.
-_VAGUE_HEIGHT = re.compile(rf"\b{_PITCH}\W+(?:[a-z]+\W+){{0,2}}?(?<!-)(?:high|low)\b|(?<!-)\b(?:high|low)\W+(?:[a-z]+\W+)?{_PITCH}\b", re.I)
+_PLACE_AFTER = r"(?=\s+(?:on|over|toward|towards|in|at|and|away|inside|outside|off)\b|\s*[,.;:)]|\s*$)"
+# A bare "high"/"low" used as a pitch's location ("curveball high on the edge", "a high curve"): the tools
+# only say knee-high, belt-high or letter-high. Usage wording ("his slider at a low rate") is left alone.
+_VAGUE_HEIGHT = re.compile(rf"\b{_PITCH},?(?:\s+(?:up|down|thrown|kept))?\s+(?<!-)(?:high|low){_PLACE_AFTER}"
+                           rf"|(?<![-\w])(?:high|low)\s+{_PITCH}\b", re.I)
 
 
 def problems(answer: str, evidence: str) -> List[str]:
@@ -126,7 +130,8 @@ class Conversation:
         """The system prompt, as much earlier conversation as fits, and the current turn: its question
         always, then its most recent tool exchanges (a call is never separated from its results)."""
         turn = _fit_turn(self.messages[self.question_at:], KEEP_MESSAGES)
-        earlier = self.messages[1:self.question_at][-max(KEEP_MESSAGES - len(turn), 0):]
+        room = KEEP_MESSAGES - len(turn)
+        earlier = self.messages[1:self.question_at][-room:] if room > 0 else []
         while earlier and earlier[0]["role"] != "user":
             earlier = earlier[1:]
         return [self.messages[0], *earlier, *turn]
@@ -188,22 +193,34 @@ class Coach:
         return turn["content"]
 
     def ask(self, question: str, convo: Optional[Conversation] = None) -> Dict[str, Any]:
+        """Answer one question. If anything fails, the conversation is left as it was before the question,
+        so a broken turn (e.g. a tool call with no result) never poisons the next one."""
         convo = convo or Conversation()
+        saved = (len(convo.messages), convo.evidence, convo.question_at)
+        try:
+            return self._ask(question, convo)
+        except Exception:
+            del convo.messages[saved[0]:]
+            convo.evidence, convo.question_at = saved[1], saved[2]
+            raise
+
+    def _ask(self, question: str, convo: Conversation) -> Dict[str, Any]:
         convo.messages.append({"role": "user", "content": question})
         convo.question_at = len(convo.messages) - 1
         calls: List[Dict[str, Any]] = []
-        answer, check = "", None
+        final, check = "", None
         for _ in range(MAX_ROUNDS):
             answer = self._step(convo, calls) or ""
             if not answer:
                 continue
             bad = problems(answer, convo.evidence + " " + RULE_FACTS)
             if not bad or check is not None:
+                final = answer
                 break
             check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
             convo.messages.append(check)
-        _drop_rejected(convo, check)
-        return {"answer": answer or "I couldn't finish that within the step limit.", "corrected": check is not None,
+        _drop_rejected(convo, check)  # a rejected answer is never returned, even if no rewrite came in time
+        return {"answer": final or "I couldn't finish that within the step limit.", "corrected": check is not None,
                 "tools_used": [c["tool"] for c in calls], "calls": calls, "visuals": visuals.for_calls(calls),
                 "conversation": convo}
 

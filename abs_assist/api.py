@@ -46,11 +46,11 @@ MAX_CONVERSATIONS = 200
 
 
 def build_store(path: Path, games: int = 720) -> sqlite3.Connection:
-    """Open the database, filling it from a simulated season the first time."""
-    fresh = not path.exists()
+    """Open the database, filling it from a simulated season if it has no pitches (also after a first
+    build that was interrupted: ingest commits only at the end)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     db = open_store(path)
-    if fresh:
+    if not db.execute("SELECT EXISTS(SELECT 1 FROM pitches)").fetchone()[0]:
         ingest(db, season(games))
     return db
 
@@ -94,8 +94,9 @@ def _meta(db: sqlite3.Connection) -> Dict[str, Any]:
     roster = {t: {"pitchers": [p for (p,) in db.execute("SELECT DISTINCT pitcher FROM pitches WHERE pitcher_team=? ORDER BY 1", (t,))],
                   "batters": [b for (b,) in db.execute("SELECT DISTINCT batter FROM pitches WHERE batter_team=? ORDER BY 1", (t,))]}
               for t in teams}
-    games = db.execute("SELECT MAX(game_id) + 1, COUNT(*) FROM pitches").fetchone()
-    return {"teams": teams, "roster": roster, "games": games[0], "pitches": games[1]}
+    games, pitches = db.execute("SELECT COUNT(DISTINCT game_id), COUNT(*) FROM pitches").fetchone()
+    game_ids = [g for (g,) in db.execute("SELECT DISTINCT game_id FROM pitches ORDER BY 1")]
+    return {"teams": teams, "roster": roster, "games": games, "game_ids": game_ids, "pitches": pitches}
 
 
 @router.get("/api/pitches")
@@ -157,7 +158,7 @@ def _replay_step(r: Dict[str, Any], model, tracker: LiveTracker, prev: Dict[str,
 
 
 @router.get("/api/live/{game_id}")
-def live(request: Request, game_id: int = PathParam(ge=0, le=1_000_000)) -> Dict[str, Any]:
+def live(request: Request, game_id: int = PathParam(ge=0, le=2**63 - 1)) -> Dict[str, Any]:
     db = _tools(request).db
     with _locked(request):
         game = sorted(rows(db, game_id=game_id), key=lambda r: r["id"])
@@ -195,6 +196,8 @@ def coach(body: Question, request: Request) -> Dict[str, Any]:
             out = Coach(_tools(request), request.app.state.chat, _locked(request)).ask(body.question, convo)
     except (urllib.error.URLError, OSError) as exc:
         raise HTTPException(503, f"The AI coach needs a model server (see README): {exc}") from None
+    except (KeyError, IndexError, TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(503, f"The model server sent a reply the coach couldn't read: {exc!r}") from None
     return {"conversation_id": conversation_id, "answer": out["answer"],
             "tools_used": out["tools_used"], "corrected": out["corrected"], "visuals": out["visuals"]}
 

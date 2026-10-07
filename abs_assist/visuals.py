@@ -34,7 +34,7 @@ def per100(runs: float) -> str:
 def recommend(r: Dict[str, Any]) -> List[Block]:
     if not r["best"]:
         return []
-    best, avoid = r["best"][0], r["worst"][-1]
+    best = r["best"][0]
     kind, height, side = [p.strip() for p in best["pitch"].split(",")]
     return [
         {"type": "headline", "label": f"Best pitch on {r['count']}", "text": best["pitch"]},
@@ -44,8 +44,14 @@ def recommend(r: Dict[str, Any]) -> List[Block]:
             {"label": "He misses if he swings", "value": pct(best["whiff_chance_if_swung_at"])},
             {"label": "Hitter's expected runs per 100 plate appearances",
              "value": per100(best["batter_value_after_runs"]), "note": f"down from {per100(r['batter_value_now_runs'])} now"}]},
-        {"type": "note", "text": f"Avoid: {avoid['pitch']} ({per100(avoid['batter_value_after_runs'])} runs per 100)."},
-    ]
+    ] + _avoid(r.get("worst") or [])
+
+
+def _avoid(worst: List[Dict[str, Any]]) -> List[Block]:
+    """The worst option as a note; nothing when there were too few options to name one."""
+    if not worst:
+        return []
+    return [{"type": "note", "text": f"Avoid: {worst[-1]['pitch']} ({per100(worst[-1]['batter_value_after_runs'])} runs per 100)."}]
 
 
 def _bars(title: str, data: Dict[str, float], fmt: Callable[[float], str]) -> Block:
