@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": true, "note": "Overgeneralizes the tool's 'avoid sinker, letter-high, toward a corner' into avoiding any sinker or any letter-high pitch."}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
 {"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": false, "note": "Parrots the generic summary and never names which pitches to lay off, though the take list gave them (e.g. sinker above the zone)."}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": false, "note": "Asked which pitches to lay off but answer gives only a generic 'take balls, swing at strikes' and names none of the specific pitches (e.g. high sinkers/splitters) the tool returned."}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Asked for ERA; tool has no ERA and the answer neither gives it nor says it is unavailable, just repeats unrelated profile stats."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": true, "note": "Claims Choi Ji-hoon and Lim Yeon-woo chase less, but neither appears in the tool result (top 10 only), so their rates and qualification are unsupported."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Misreads 3.4% (share of all taken pitches) as share of middle-of-plate strikes, and calls 123 of 384 a 'majority'."}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Restates both profiles without saying who misses more bats (Kang 10.8% vs Jung 10.1% whiff rate), after an irrelevant chase leaderboard call."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Misreads 3.4% of taken pitches as 3.4% of their strikes, and calls fastballs 'the majority' when 123 of 384 is about a third."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

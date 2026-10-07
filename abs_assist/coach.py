@@ -199,8 +199,9 @@ def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
     return []
 
 
-_SIZE_WORDS = re.compile(r"\b(?:shr[ae]nk|smaller|narrower|bigger|larger|grew|wider|shorter|taller)\b", re.I)
-_UNAVAILABLE = re.compile(r"not (?:available|tracked|in the data)|isn't available|doesn't (?:have|track)|don't (?:have|track)|no data", re.I)
+_SIZE_WORDS = re.compile(r"\b(?:shr[aiu]nk\w*|proportional\w*|smaller|narrower|bigger|larger|grew|wider|shorter|taller)\b", re.I)
+_UNAVAILABLE = re.compile(r"not (?:available|tracked|in the data|recorded)|isn't (?:available|tracked|recorded)"
+                          r"|doesn't (?:have|track)|don't (?:have|track)|no data", re.I)
 
 
 def zone_size_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
@@ -218,6 +219,43 @@ def non_answer(question: str, answer: str, calls: List[Dict[str, Any]]) -> List[
     looked = any(c["tool"] != "find_players" and "error" not in c.get("result", "") for c in calls)
     if looked and not re.search(r"\d", answer) and not any(n in answer for n in names) and not _UNAVAILABLE.search(answer):
         return ["an answer that doesn't use what the tools returned"]
+    return []
+
+
+# Field -> what its value is a share of; an answer must not call it a share of something else.
+_UNITS = {"walk_rate": ("batters faced or plate appearances", r"pitches"),
+          "strikeout_rate": ("batters faced or plate appearances", r"pitches"),
+          "share_of_takes": ("taken pitches", r"strikes")}
+
+
+def unit_problems(answer: str, evidence: str) -> List[str]:
+    """A rate described as a share of the wrong thing ('12% of his pitches' for a walk rate)."""
+    bad = []
+    for key, (right, wrong) in _UNITS.items():
+        for value in re.findall(rf'"{key}":\s*([\d.]+)', evidence):
+            pct = round(float(value) * 100, 1)
+            for shown in {f"{pct:g}", f"{round(pct):g}"}:
+                if re.search(rf"{re.escape(shown)}\s?%[^.]{{0,25}}\b(?:of )?(?:his |their |all )?{wrong}\b", answer):
+                    bad.append(f"{shown}% called a share of {wrong} (it is per {right})")
+    return sorted(set(bad))
+
+
+def direction_problems(answer: str, evidence: str) -> List[str]:
+    """A player's value called above (or below) the league average when it is the other side of it."""
+    bad = []
+    for value, avg in re.findall(r'"value":\s*([\d.]+),\s*"league_average":\s*([\d.]+)', evidence):
+        v, a = float(value), float(avg)
+        for shown in {f"{round(v * 100, 1):g}", f"{round(v * 100):g}"} if v <= 1 else {f"{v:g}"}:
+            near = re.search(rf"{re.escape(shown)}[^.]{{0,40}}\b(above|higher than|below|lower than)\b[^.]{{0,25}}average", answer)
+            if near and (near.group(1) in ("above", "higher than")) != (v > a):
+                bad.append(f"{shown} called {near.group(1)} the league average ({a:g}); it is on the other side")
+    return bad
+
+
+def unavailable_problems(question: str, answer: str) -> List[str]:
+    """A question about a stat the data can't give, answered without saying so."""
+    if fallback.UNAVAILABLE.search(question) and not _UNAVAILABLE.search(answer):
+        return ["a stat or split the data doesn't have: say plainly it isn't available"]
     return []
 
 
@@ -345,7 +383,8 @@ class Coach:
         return (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
                 + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
                 + yes_no_problems(answer, calls) + location_problems(answer, calls) + zone_size_problems(answer, calls)
-                + non_answer(question, answer, calls)
+                + non_answer(question, answer, calls) + unit_problems(answer, convo.evidence)
+                + direction_problems(answer, convo.evidence) + unavailable_problems(question, answer)
                 + routing_problems(question, calls, self.tools.pitchers()) + ([] if convo.evidence else [UNLOOKED]))
 
     def _ask(self, question: str, convo: Conversation) -> Dict[str, Any]:

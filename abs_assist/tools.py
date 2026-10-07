@@ -64,7 +64,9 @@ SCHEMA: List[Dict[str, Any]] = [
                                      + "; pitchers/team_pitching: " + ", ".join(PITCHER_METRICS)),
                     "who": _param("string", "batters, pitchers, team_batting (to compare teams' hitters) or team_pitching "
                                             "(to compare teams' pitchers)"),
-                    "team": _param("string", "limit players to one team, or empty for the league")}},
+                    "team": _param("string", "limit players to one team, or empty for the league"),
+                    "order": _param("string", "highest (default) or lowest: use lowest for 'least', 'fewest', "
+                                              "'toughest to strike out'")}},
     {"name": "abs_rules", "description": "The KBO's published ABS zone rules, how the zone follows the batter's height, and how "
                                       "often low pitches of each type are called balls (the two-plane effect). Give a "
                                       "batter's height to get his zone.",
@@ -102,7 +104,8 @@ class Toolbox:
             "pitcher_profile": self.pitcher_profile,
             "batter_profile": self.batter_profile,
             "pitcher_arsenal": lambda pitcher: arsenal(db, pitcher),
-            "leaderboard": lambda metric, who="batters", team="": leaderboard(self.league, metric, who, team),
+            "leaderboard": lambda metric, who="batters", team="", order="highest": leaderboard(
+                self.league, metric, who, team, order=order if order in ("highest", "lowest") else "highest"),
             "abs_rules": self.abs_rules,
             "recommend_pitch": lambda pitcher, batter, balls, strikes: self.strategy.recommend(pitcher, batter, int(balls), int(strikes)),
             "take_guide": lambda batter, balls, strikes: self.strategy.take_guide(batter, int(balls), int(strikes)),

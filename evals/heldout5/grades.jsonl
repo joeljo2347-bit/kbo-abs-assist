@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Misreads the take_guide counts as how often he swings (the tool says it compares kinds of pitch), and covers only 0-2 without addressing his 33% chase rate or two-strike approach."}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Asked a hitting question about the batter protecting with two strikes but answered with a pitching plan against him."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "No per-pitch whiff data was provided; naming the splitter as the strikeout pitch and crediting its 'movement' is invented, and 12.6% is his overall whiff rate."}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says to avoid 'any other pitch toward a corner', but the tool lists sinker letter-high toward a corner as the second-best pitch."}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Recommendation comes only from the batter's plan and never checks Lee Seo-jun's own pitches, and the answer doesn't say so (it may recommend a pitch he doesn't throw)."}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Didn't give OBP against left-handers or say that split isn't available; it just repeated the general profile."}
+{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims a league average 'for his position', which the tool never gave; the average shown is league-wide."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": "Minor rounding: 0.5575 x 190 = 105.9 cm, given as about 106.0; the ~11 cm difference is correct."}
+{"id": "4b515075eb", "pass": false, "useful": true, "note": "Lists both zones but never states how far the top moves (11.1 cm), which is what was asked."}

@@ -1,0 +1,10 @@
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Says to avoid pitches with a higher whiff chance, which is backwards for the pitcher and not supported by the tool."}
+{"id": "1a841f217c", "pass": false, "useful": true, "note": "Misstates the 10.8% league-average whiff rate as 'the league average whiff rate against him'."}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Invents home-run rate and slugging being 'middle of the pack' (he has the fewest HRs of all 90) and calls him a contact hitter without support."}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Gives his overall .271 average as his two-strike average; no two-strike split was in the data."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Lists the batters with the highest strikeout rate, the opposite of the toughest to strike out."}
+{"id": "590ddb527d", "pass": true, "useful": false, "note": "Repeats the tool summary word for word without saying whether he should take more pitches."}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

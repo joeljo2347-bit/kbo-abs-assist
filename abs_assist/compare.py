@@ -146,8 +146,9 @@ def context(league: League, kind: str, name: str, metrics: Dict[str, str]) -> Di
     return {m: verdict(league, kind, name, m) for m in metrics}
 
 
-def leaderboard(league: League, metric: str, who: str = "batters", team: str = "", top: int = 10) -> Dict[str, Any]:
-    """Players (or teams) ranked by a metric, highest first."""
+def leaderboard(league: League, metric: str, who: str = "batters", team: str = "", top: int = 10,
+                order: str = "highest") -> Dict[str, Any]:
+    """Players (or teams) ranked by a metric, highest first (or lowest first: 'toughest to strike out')."""
     kind = {"batters": "batter", "pitchers": "pitcher", "team_batting": "team_batting", "team_pitching": "team_pitching"}.get(who)
     metrics = BATTER_METRICS if kind in ("batter", "team_batting") else PITCHER_METRICS
     if kind is None or metric not in metrics:
@@ -157,9 +158,10 @@ def leaderboard(league: League, metric: str, who: str = "batters", team: str = "
         side = "batter_team" if kind == "batter" else "pitcher_team"
         names = {n for (n,) in league.db.execute(f"SELECT DISTINCT {kind} FROM pitches WHERE {side} = ?", (team,))}
         pool = {n: v for n, v in pool.items() if n in names}
-    ranked = sorted((n for n in pool if pool[n].get(metric) is not None), key=lambda n: -pool[n][metric])
-    return {"how_to_read": f"{metric}: {metrics[metric]}. Highest first; everyone qualified is counted.",
-            "metric": metric, "who": who, "team": team or "all",
+    sign = 1 if order == "lowest" else -1
+    ranked = sorted((n for n in pool if pool[n].get(metric) is not None), key=lambda n: sign * pool[n][metric])
+    return {"how_to_read": f"{metric}: {metrics[metric]}. {order.capitalize()} first; everyone qualified is counted.",
+            "metric": metric, "order": f"{order} first", "who": who, "team": team or "all",
             "note": ("These are teams." if kind.startswith("team") else
                      "These are individual players, not teams: for a team ranking use who=team_batting or team_pitching."),
             "qualified": len(ranked), "league_average": league.average(kind, metric),

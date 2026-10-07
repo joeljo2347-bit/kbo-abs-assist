@@ -35,7 +35,9 @@ def pitch_plan(r: Result) -> Optional[str]:
 
 def take(r: Result) -> Optional[str]:
     verdict, _, detail = str(r.get("summary", "")).removeprefix("Verdict: ").partition(". ")
-    return f"On {r['count']}: {verdict}. {detail}" if verdict else None
+    pitches = "; ".join(t["pitch"] for t in r.get("take", [])[:3])
+    lay_off = f" The pitches he gains most by taking: {pitches}." if pitches else ""
+    return f"On {r['count']}: {verdict}. {detail}{lay_off}" if verdict else None
 
 
 def board(r: Result) -> Optional[str]:
@@ -48,7 +50,8 @@ def board(r: Result) -> Optional[str]:
     kind = "teams" if str(r.get("who", "")).startswith("team") else "players"
     tied = [x["name"] for x in rows[1:] if x[m] == rows[0][m]]
     tie = f" {rows[0]['name']} is tied for the lead with {', '.join(tied)}." if tied else ""
-    return f"Highest {m.replace('_', ' ')} among {kind}: {first}.{tie} League average: {_stat(m, r.get('league_average'))}."
+    word = "Lowest" if str(r.get("order", "")).startswith("lowest") else "Highest"
+    return f"{word} {m.replace('_', ' ')} among {kind}: {first}.{tie} League average: {_stat(m, r.get('league_average'))}."
 
 
 def arsenal(r: Result) -> Optional[str]:

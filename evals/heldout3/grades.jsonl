@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Misreads the take guide (kinds of pitch, not how often he swings) as his own lay-off behavior and invents a league-average comparison."}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Plan ignores the named pitcher Kim Ji-hoon (generic batter plan, unchecked that he throws a curveball) and doesn't say so."}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Strikeout rate presented as 20.6% of his pitches, which misreads the rate's unit."}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Says bottom five, but 5 of 59 others are lower so he ranks 55th of 60; also says all KBO pitchers when only 60 qualified."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Misreads 62 of 64 pitch kinds where taking is better as how often he lays off, and makes up a league-average comparison."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Calls strikeout rate a share of pitches, and misstates the ranking: 33 of 59 lower is more than half, not about a third."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": false, "useful": false, "note": "The 28% vs left-handers figure is invented; the tool gave no handedness split."}
+{"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Says the zone shrank and got narrower; the tool says it is the same size and width, just 1.1 cm lower."}
+{"id": "4b515075eb", "pass": false, "useful": true, "note": "Says the shape shrinks proportionally, but the tool says the zone is the same share of height, so the same size for any batter."}

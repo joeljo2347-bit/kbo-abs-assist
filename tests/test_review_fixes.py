@@ -287,3 +287,26 @@ def test_final_round_fallbacks(tools):
     assert plan[-1]["tool"] == "recommend_pitch" and plan[-1]["args"]["pitcher"] == pitchers[0]
     profile_mix = tools.call("pitcher_profile", {"pitcher": pitchers[0]})
     assert profile_mix["each_pitch"] and profile_mix["first_pitch_of_at_bat_mix"]["pitches"] > 0
+
+
+def test_last_round_checks(tools):
+    from abs_assist import fallback
+    from abs_assist.coach import direction_problems, unavailable_problems, unit_problems, zone_size_problems
+    assert fallback.named("How many strikes does Kim Ji-hoon lose?", ["Kim Ji-ho", "Kim Ji-hoon"]) == ["Kim Ji-hoon"]
+    assert fallback.best("What's Kim Ji-hoon's ERA?", [], tools).startswith("ERA isn't available")
+    assert unavailable_problems("What's his WAR?", "He's a solid player.")
+    assert not unavailable_problems("What's his WAR?", "WAR isn't available in this data.")
+    evidence = json.dumps({"walk_rate": 0.122, "share_of_takes": 0.034})
+    assert unit_problems("He walks 12.2% of his pitches.", evidence)
+    assert unit_problems("They lose 3.4% of their strikes.", evidence)
+    assert not unit_problems("He walks 12.2% of batters faced; 3.4% of taken pitches.", evidence)
+    verdict = json.dumps({"whiff_rate": {"value": 0.099, "league_average": 0.108}})
+    assert direction_problems("His 9.9% whiff rate is above the league average.", verdict)
+    assert not direction_problems("His 9.9% whiff rate is below the league average.", verdict)
+    rules = [{"tool": "abs_rules", "result": json.dumps(tools.call("abs_rules", {}))}]
+    assert zone_size_problems("From 2024 to 2025 the zone shrinks proportionally.", rules)
+    low = tools.call("leaderboard", {"metric": "strikeout_rate", "order": "lowest"})
+    values = [r["strikeout_rate"] for r in low["ranking"]]
+    assert values == sorted(values) and low["answer"].startswith("Lowest")
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    assert "gains most by taking" in tools.call("take_guide", {"batter": batter, "balls": 0, "strikes": 0})["answer"]
