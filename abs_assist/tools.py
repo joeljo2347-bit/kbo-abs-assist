@@ -161,6 +161,9 @@ class Toolbox:
                 "change_2024_to_2025": zone_change(2024, 2025),
                 "low_pitches": self.league.cached("low_pitches", lambda: low_pitch_calls(self.db))}
 
+    def teams(self) -> List[str]:
+        return self.league.cached("team_names", lambda: [t for (t,) in self.db.execute("SELECT DISTINCT pitcher_team FROM pitches")])
+
     def batters(self) -> List[str]:
         return self.league.cached("batter_names", lambda: [b for (b,) in self.db.execute("SELECT DISTINCT batter FROM pitches")])
 

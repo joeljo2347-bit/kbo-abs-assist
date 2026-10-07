@@ -1,8 +1,8 @@
-{"id": "547b5b7878", "pass": false, "useful": true, "note": "The 52% first-pitch fastball rate is right, but the claim that it is slightly below the league average for first pitches has no source, since the tool gave no league first-pitch figure."}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "It makes up home-run-rate and slugging numbers and calls them middle of the pack, but the tool gave neither stat."}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Says the fastball (9.2%) gets the most whiffs, but the tool shows splitter 28.6% and slider 13.3% are higher and names splitter as the top whiff pitch."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Asked for his two-strike batting average but gives his overall average (.271) without saying the two-strike split isn't available."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}

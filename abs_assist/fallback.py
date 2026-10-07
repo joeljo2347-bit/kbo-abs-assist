@@ -1,23 +1,18 @@
-"""What the coach fills in when the model's tool choices fall short.
+"""What the coach fills in when the model's tool choices fall short of the question.
 
-A stat or split the data can't give is said plainly; a pitcher the question names gets his own plan
-when the model asked for the any-pitcher one; and the players a question names are looked up when
-the model looked nothing up.
+A stat or split the data can't give is said plainly. Otherwise the lookups the question needs and the
+model skipped are run here: the named pitcher's own plan, the count the question names, the team it
+names, his pitch mix, the zone rules for the heights it gives, or the profiles of the players it names.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional
 
 Call = Dict[str, Any]
-# Words in a question that name the stat a "who is higher" comparison is about.
-STAT_WORDS: List[Tuple[str, str]] = [
-    (r"miss|whiff", "whiff_rate"), (r"chase", "chase_rate"), (r"hard|velo|fast|speed", "fastball_kmh"),
-    (r"strikes? (?:thrown|in the zone)|in the zone|zone rate", "in_zone_rate"), (r"strike ?out", "strikeout_rate"),
-    (r"walk", "walk_rate"), (r"average", "batting_average"), (r"home run|homer", "home_runs"),
-]
+COUNT_TOOLS = ("recommend_pitch", "attack_plan", "take_guide", "predict_next_pitch")
 
 
 def _result(call: Call) -> Dict[str, Any]:
@@ -36,29 +31,112 @@ def named(question: str, names: List[str]) -> List[str]:
 # Stats the data can't give: it records pitches and how plate appearances ended, not runs, bases or game state.
 UNAVAILABLE = re.compile(r"\b(?:ERA|WAR|RBIs?|runs batted|scoring position|RISP|saves?|wins?|losses|innings pitched|"
                          r"stolen|with runners|home and away|by month)\b", re.I)
+# A hitter's results split by count or pitcher hand: the data has his pitches, but no split of his results.
+HITTER_SPLIT = re.compile(r"\b(?:batting average|average|on-base|obp|slugging|home runs?)\b[^?]*\b(?:with two strikes|"
+                          r"with \d strikes|against (?:left|right)|vs\.? (?:left|right)|left-handed pitch|right-handed pitch|lefties|righties)",
+                          re.I)
 
 
 def unavailable(question: str) -> str:
-    """'ERA isn't in this data ...' when the question asks for a stat or split the data can't give."""
+    """'ERA: not available in this data.' when the question asks for a stat or split the data can't give."""
     m = UNAVAILABLE.search(question)
-    if not m:
-        return ""
-    return (f"{m.group(0)}: not available. This data records every pitch and how each plate appearance ended, "
-            "but not base runners, innings or game scores.")
-
-
-def lookup(question: str, tools: Any, calls: List[Call]) -> None:
-    """Fill in what the model skipped: the named pitcher's own plan when it used the any-pitcher plan,
-    or the profiles of the players the question names when it looked nothing up."""
-    pitchers, plan = named(question, tools.pitchers()), next((c for c in calls if c["tool"] == "attack_plan"), None)
-    if pitchers and plan and isinstance(plan.get("args"), dict):
-        _run(tools, calls, "recommend_pitch", {**plan["args"], "pitcher": pitchers[0]})
-    elif not calls:
-        for p in pitchers:
-            _run(tools, calls, "pitcher_profile", {"pitcher": p})
-        for b in named(question, tools.batters()):
-            _run(tools, calls, "batter_profile", {"batter": b})
+    if m:
+        return f"{m.group(0)}: not available in this data."
+    return "That split of a hitter's results isn't available in this data." if HITTER_SPLIT.search(question) else ""
 
 
 def _run(tools: Any, calls: List[Call], name: str, args: Dict[str, Any]) -> None:
     calls.append({"tool": name, "args": args, "result": json.dumps(tools.call(name, args))})
+
+
+def _counts(question: str) -> List[tuple]:
+    found = [(int(b), int(s)) for b, s in re.findall(r"\b([0-3])-([0-2])\b", question)]
+    return found + ([(3, 2)] if "full count" in question.lower() else [])
+
+
+def _right_count(question: str, tools: Any, calls: List[Call]) -> None:
+    """The model looked up a different count than the question's: look up the question's."""
+    counts, made = _counts(question), [c for c in calls if c["tool"] in COUNT_TOOLS and isinstance(c.get("args"), dict)]
+    if counts and made and not any((c["args"].get("balls"), c["args"].get("strikes")) in counts for c in made):
+        b, s = counts[0]
+        _run(tools, calls, made[-1]["tool"], {**made[-1]["args"], "balls": b, "strikes": s})
+
+
+def _team_filter(question: str, tools: Any, calls: List[Call]) -> None:
+    """The question names a team but the model ranked the whole league: rank that team's players."""
+    teams = named(question, tools.teams())
+    board = next((c for c in reversed(calls) if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)), None)
+    if teams and board and not board["args"].get("team") and not str(board["args"].get("who", "")).startswith("team"):
+        _run(tools, calls, "leaderboard", {**board["args"], "team": teams[0]})
+
+
+def _pitcher_in(question: str, tools: Any, calls: List[Call]) -> Optional[str]:
+    names = named(question, tools.pitchers())
+    return names[0] if names else next((c["args"]["pitcher"] for c in calls if (c.get("args") or {}).get("pitcher")), None)
+
+
+def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
+    """A pitch-mix or zone-rules question the model answered with another tool: run the one it needs."""
+    used, q = {c["tool"] for c in calls}, question.lower()
+    pitcher = _pitcher_in(question, tools, calls)
+    mix = re.search(r"after an? \w+|throw (?:to|against)|left-handed|right-handed|first pitch|start .* off|main pitch|rely|lean on|"
+                    r"secondary|best pitch|throw his", q)
+    if mix and pitcher and "pitcher_arsenal" not in used and not _counts(question):
+        _run(tools, calls, "pitcher_arsenal", {"pitcher": pitcher})
+    heights = [int(h) for h in re.findall(r"\b(1[2-9]\d|2[0-2]\d) ?cm\b", q)]
+    if heights:
+        made = {(c.get("args") or {}).get("batter_height_cm") for c in calls if c["tool"] == "abs_rules"}
+        for h in heights:
+            if h not in made and float(h) not in made:
+                _run(tools, calls, "abs_rules", {"batter_height_cm": h})
+    elif re.search(r"\babs\b|\bzone\b|strike zone", q) and "abs_rules" not in used and not named(question, tools.batters()):
+        _run(tools, calls, "abs_rules", {})
+
+
+def _named_players(question: str, tools: Any, calls: List[Call]) -> None:
+    """Profiles for the players the question names, when the model looked nothing up or didn't look them up."""
+    looked = {(c.get("args") or {}).get(k) for c in calls for k in ("pitcher", "batter")}
+    pitchers, batters = named(question, tools.pitchers()), named(question, tools.batters())
+    several = len(pitchers) + len(batters) >= 2 and not _counts(question)
+    if not calls or several:
+        for p in (p for p in pitchers if p not in looked or not calls):
+            _run(tools, calls, "pitcher_profile", {"pitcher": p})
+        for b in (b for b in batters if b not in looked or not calls):
+            _run(tools, calls, "batter_profile", {"batter": b})
+
+
+def _plans(question: str, tools: Any, calls: List[Call]) -> None:
+    """A count with a batter (and maybe a pitcher) named, but no pitch plan or take guide looked up: look one up."""
+    batters, pitchers = named(question, tools.batters()), named(question, tools.pitchers())
+    if not batters or any(c["tool"] in COUNT_TOOLS for c in calls):
+        return
+    stance = re.search(r"\b(?:take|swing|protect|patient|aggressive|lay off|sit on)\b", question, re.I)
+    counts = _counts(question) or ([(0, 2), (1, 2), (2, 2), (3, 2)] if re.search(r"two strikes", question, re.I) else [])
+    for b, s in counts:
+        if stance:
+            _run(tools, calls, "take_guide", {"batter": batters[0], "balls": b, "strikes": s})
+        elif pitchers:
+            _run(tools, calls, "recommend_pitch", {"pitcher": pitchers[0], "batter": batters[0], "balls": b, "strikes": s})
+        else:
+            _run(tools, calls, "attack_plan", {"batter": batters[0], "balls": b, "strikes": s})
+
+
+def _count_metric(tools: Any, calls: List[Call], question: str) -> None:
+    """'Most walks' or 'walks drawn' asks for a count; the model ranked the rate."""
+    board = next((c for c in reversed(calls) if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)), None)
+    want = re.search(r"\b(?:most|fewest) (walks|strikeouts)\b|\b(walks) drawn\b", question, re.I)
+    if board and want and board["args"].get("metric", "").endswith("_rate") and not str(board["args"].get("who", "")).startswith("team"):
+        _run(tools, calls, "leaderboard", {**board["args"], "metric": (want.group(1) or want.group(2)).lower()})
+
+
+def lookup(question: str, tools: Any, calls: List[Call]) -> None:
+    """Run the lookups the question needs that the model skipped."""
+    pitchers, plan = named(question, tools.pitchers()), next((c for c in calls if c["tool"] == "attack_plan"), None)
+    if pitchers and plan and isinstance(plan.get("args"), dict):
+        _run(tools, calls, "recommend_pitch", {**plan["args"], "pitcher": pitchers[0]})
+    _plans(question, tools, calls)
+    _right_count(question, tools, calls)
+    _count_metric(tools, calls, question)
+    _team_filter(question, tools, calls)
+    _skipped_tool(question, tools, calls)
+    _named_players(question, tools, calls)

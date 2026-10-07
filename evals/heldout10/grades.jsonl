@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": true, "note": "Calls the 54/64 'kinds of pitch (by type and location)' plain 'pitch types' and drops 'above the zone' from the splitter, which could read as an in-zone middle splitter."}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Says to avoid the fastball, but a letter-high fastball on the edge is the tool's third-best pitch; only letter-high changeups are listed as worst."}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "Says a higher chase rate means he 'takes more pitches outside the zone', but it means he swings at more of them."}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Saying RBIs aren't available is fine, but the reason given (no base runners, innings or scores) appears in no tool result."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Calls his fastball the hardest in the league (one pitcher throws harder), calls 4.7 km/h above average 'just above', and invents a causal link between fastball usage and in-zone rate."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Answers 'relies on fastball' with velocity instead of usage (48.8% of pitches, primary pitch), so it misses the question."}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": false, "note": "Never answers who strikes out more, though the profiles show strikeout rates of 0.208 for Lee and 0.193 for Kim."}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Gives walk rate as a share of at-bats, but the tool defines it per batter faced."}
-{"id": "4b515075eb", "pass": false, "useful": true, "note": "Says most lost strikes are fastballs, but 124 of 396 is about 31%, not a majority."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": false, "useful": true, "note": "Numbers are right, but the definition 'at the middle of the plate but below it at the back' isn't in this record's tool result."}

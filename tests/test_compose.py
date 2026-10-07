@@ -73,3 +73,26 @@ def test_follow_ups_and_skipped_lookups(tools):
     assert answer("Why?", [], tools, previous=first) == answer("Why?", first, tools)
     looked_up = answer(f"Tell me about {pitcher}.", [], tools)
     assert looked_up.startswith(pitcher) and looked_up != NOTHING
+
+
+def test_skipped_lookups_are_filled_in(tools):
+    pitcher, batter = tools.find_players("LG Twins")["pitchers"][0], tools.find_players("KT Wiz")["batters"][0]
+    profiles = [ran(tools, "batter_profile", batter=batter), ran(tools, "pitcher_profile", pitcher=pitcher)]
+    plan = answer(f"{batter} is up with a 3-1 count against {pitcher}. What should we throw?", profiles, tools)
+    assert plan.startswith("On 3-1, throw") and f"for {pitcher} against {batter}" in plan
+    two = answer(f"Should {batter} protect the plate more with two strikes?", [], tools)
+    assert all(f"On {b}-2:" in two for b in range(4))
+    heights = answer("How much does the zone's top move between a 170 cm and a 190 cm hitter?", [], tools)
+    assert "From 170 cm to 190 cm, the top moves up" in heights
+    walks = answer("Who leads the league in walks drawn?", [ran(tools, "leaderboard", metric="walk_rate")], tools)
+    assert walks.startswith("Highest walks among players")
+
+
+def test_pitch_questions_and_mixed_verdicts(tools):
+    pitcher = tools.find_players("LG Twins")["pitchers"][0]
+    profile = [ran(tools, "pitcher_profile", pitcher=pitcher)]
+    assert answer(f"What's {pitcher}'s main pitch?", profile, tools).startswith(f"{pitcher}'s main pitch is the")
+    assert "most swings and misses" in answer(f"What's {pitcher}'s best pitch for whiffs?", profile, tools)
+    batter = tools.find_players("KT Wiz")["batters"][1]
+    text = answer(f"Is {batter} a free swinger or a patient hitter?", [ran(tools, "batter_profile", batter=batter)], tools)
+    assert text.split(":")[0] in ("A patient hitter", "A free swinger") or text.startswith("In between")

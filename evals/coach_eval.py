@@ -6,7 +6,7 @@
 
 Add `heldout` (e.g. `run heldout`) for the held-out set: ten questions written after the coach was
 last changed, never used to change it, run once and reported as they came out (evals/heldout/).
-`heldout2` to `heldout11` were each written and committed before the changes that followed the set before.
+`heldout2` to `heldout12` were each written and committed before the changes that followed the set before.
 
 The questions use real names from the simulated league and include traps: data the tools don't
 have (ERA), and questions that need several lookups. The grader sees only each question, every
@@ -265,15 +265,37 @@ def heldout11_questions(tb: Toolbox) -> List[str]:
     ]
 
 
+def heldout12_questions(tb: Toolbox) -> List[str]:
+    """A twelfth held-out set, committed with the fixes from the set-11 round and before any run of it."""
+    doosan, nc, kia = tb.find_players("Doosan Bears"), tb.find_players("NC Dinos"), tb.find_players("KIA Tigers")
+    hanwha, lotte = tb.find_players("Hanwha Eagles"), tb.find_players("Lotte Giants")
+    return [
+        f"Is {doosan['batters'][7]} a patient hitter?",
+        f"What's {nc['pitchers'][5]}'s go-to pitch with two strikes?",
+        "Which team's pitchers have the highest whiff rate?",
+        f"{kia['pitchers'][5]} facing {hanwha['batters'][8]}, 1-0 count. What's the pitch?",
+        f"Who chases more, {lotte['batters'][9]} or {doosan['batters'][8]}?",
+        f"How hard does {hanwha['pitchers'][6]} throw?",
+        f"What's {nc['batters'][8]}'s slugging percentage?",
+        "Who hits the most home runs on the KIA Tigers?",
+        f"Should {lotte['batters'][2]} take more pitches on 2-1?",
+        "How wide is the ABS zone?",
+    ]
+
+
 def run() -> None:
     tb = Toolbox(build_store(Path("data/abs.db")))
     coach, out = Coach(tb, http_chat()), []
     pick = {"dev": questions, "heldout": heldout_questions, "heldout2": heldout2_questions, "heldout3": heldout3_questions,
             "heldout4": heldout4_questions, "heldout5": heldout5_questions,
             "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions,
-            "heldout9": heldout9_questions, "heldout10": heldout10_questions, "heldout11": heldout11_questions}[SET]
+            "heldout9": heldout9_questions, "heldout10": heldout10_questions, "heldout11": heldout11_questions,
+            "heldout12": heldout12_questions}[SET]
     for q in pick(tb):
-        r = coach.ask(q)
+        try:
+            r = coach.ask(q)
+        except Exception as exc:  # a model-server error fails this question, not the run
+            r = {"calls": [], "answer": f"(error: {exc})", "corrected": False}
         out.append({"question": q, "calls": r["calls"], "answer": r["answer"], "corrected": r["corrected"]})
         print(f"- {q}\n  tools: {[c['tool'] for c in r['calls']]}\n  {r['answer'][:160]!r}")
     RUNS.write_text("\n".join(json.dumps(o) for o in out) + "\n")

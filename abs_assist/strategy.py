@@ -165,11 +165,11 @@ class Strategy:
         tilt = batter_tilt(self.db, batter, self.league)
         rated = [(k, evaluate(r, b, s, self.values, tilt)) for k, r in self.league.items()
                  if k[2] == (s == 2) and r.n >= MIN_PITCHES]
-        return self._ranked(rated, b, s, top)
+        return {"batter": batter, "pitcher": None, **self._ranked(rated, b, s, top)}
 
     def recommend(self, pitcher: str, batter: str, b: int, s: int, top: int = 3) -> Dict:
         """The pitches that give this batter the least from this count."""
-        return self._ranked(self.options(pitcher, batter, b, s), b, s, top)
+        return {"pitcher": pitcher, "batter": batter, **self._ranked(self.options(pitcher, batter, b, s), b, s, top)}
 
     def _ranked(self, rated: List[Tuple[Key, Dict[str, float]]], b: int, s: int, top: int) -> Dict:
         ranked = sorted(rated, key=lambda kv: kv[1]["overall"])

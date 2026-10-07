@@ -20,7 +20,7 @@ BATTER_METRICS = {
     "zone_height_cm": "height of his ABS zone (top minus bottom), cm",
     "batting_average": "hits per at-bat", "home_runs": "home runs", "strikeout_rate": "strikeouts per plate appearance",
     "walk_rate": "walks per plate appearance", "on_base_percentage": "times on base (hits and walks) per plate appearance",
-    "slugging": "total bases per at-bat",
+    "slugging": "total bases per at-bat", "walks": "walks drawn (a count)", "strikeouts": "strikeouts (a count)",
 }
 PITCHER_METRICS = {
     "in_zone_rate": "share of his pitches inside the ABS zone", "chase_rate": "share of his pitches outside the zone that were swung at",
@@ -36,7 +36,8 @@ HIGH_MEANS = {
     ("batter", "zone_height_cm"): "a taller ABS zone", ("batter", "batting_average"): "a better hitter for average",
     ("batter", "home_runs"): "more home runs", ("batter", "strikeout_rate"): "strikes out more often",
     ("batter", "walk_rate"): "walks more often", ("batter", "on_base_percentage"): "gets on base more often",
-    ("batter", "slugging"): "hits for more power",
+    ("batter", "slugging"): "hits for more power", ("batter", "walks"): "draws more walks",
+    ("batter", "strikeouts"): "strikes out more",
     ("pitcher", "in_zone_rate"): "throws more pitches in the zone", ("pitcher", "chase_rate"): "gets more chases",
     ("pitcher", "whiff_rate"): "gets more swings and misses", ("pitcher", "fastball_kmh"): "throws harder",
     ("pitcher", "strikes_lost_at_back_rate"): "loses more strikes at the back of the plate",

@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "Says he will 'almost certainly' throw a fastball when the tool gives only a 54% chance."}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Says 'these are the top four pitches' but lists only three, leaving out the curveball above the zone off the plate."}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Asked for his ABS zone but the answer omits it, though the tool gave 48.3-99.5 cm."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Correctly says ERA is unavailable, but no tool result shown supports the claim that the data lacks base runners, innings or scores."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Ignores the three named KIA hitters and lists league leaders; it never compares Choi Ji-hoon, Choi Woo-jin and Lim Yeon-woo."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Says 'the majority are fastballs' but fastballs are 123 of 384, about 32%."}
-{"id": "4b515075eb", "pass": false, "useful": false, "note": "Never compares the two: gives only Jung Woo-jin's profile and no whiff rate for Kang Ha-jun."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Its garbled definition ('below it at the back') is not in this tool result, and it gives only the fastball count instead of the full by-pitch breakdown."}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

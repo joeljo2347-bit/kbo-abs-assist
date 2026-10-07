@@ -22,18 +22,22 @@ LABELS = {
     "strikeout_rate": "strikeout rate", "walk_rate": "walk rate", "on_base_percentage": "on-base percentage",
     "slugging": "slugging", "in_zone_rate": "share of pitches in the zone", "fastball_kmh": "fastball speed",
     "strikes_lost_at_back_rate": "share of taken pitches lost as strikes at the back of the plate",
+    "strikeouts": "strikeouts", "walks": "walks",
 }
+PITCH_QUESTION = r"main pitch|throws? (?:the )?most|rely|lean on|go-to|start\w* .*off|first pitch|best pitch|strikeout pitch|put.?away"
 # (words in the question, stat, a "yes" means the stat is high) - first match wins, per kind of player.
 BATTER_WORDS: List[Tuple[str, str, bool]] = [
+    (r"how many strike ?outs", "strikeouts", True), (r"how many walks|walks drawn", "walks", True),
     (r"(?:hard|tough)\w* to strike", "strikeout_rate", False), (r"strike ?outs?|strikes? out", "strikeout_rate", True),
     (r"power|home runs?|homers?", "home_runs", True), (r"slug", "slugging", True),
     (r"on-base|\bobp\b|get on base", "on_base_percentage", True), (r"contact", "whiff_rate", False),
+    (r"contact", "batting_average", True),
     (r"disciplin|patient|lay\w* off|chase", "chase_rate", False), (r"aggressive|free.?swing", "zone_swing_rate", True),
     (r"walk", "walk_rate", True), (r"miss|whiff", "whiff_rate", True), (r"average|hitter for", "batting_average", True),
     (r"zone", "zone_height_cm", True),
 ]
 PITCHER_WORDS: List[Tuple[str, str, bool]] = [
-    (r"hard|velo|fast|speed", "fastball_kmh", True), (r"miss|whiff", "whiff_rate", True),
+    (r"\bhard|velo|speed|\bfast(?:er|est)?\b", "fastball_kmh", True), (r"miss|whiff", "whiff_rate", True),
     (r"strike ?outs?|strikes? out", "strikeout_rate", True), (r"walk", "walk_rate", True), (r"chase", "chase_rate", True),
     (r"back of the plate|lose", "strikes_lost_at_back_rate", True),
     (r"strikes|in the zone|zone rate|command", "in_zone_rate", True),
@@ -67,7 +71,7 @@ def asked_stats(question: str, kind: str) -> List[Tuple[str, bool]]:
     """The stats the question is about, with whether a 'yes' means high."""
     words = BATTER_WORDS if kind == "batter" else PITCHER_WORDS
     found = [(m, high) for pattern, m, high in words if re.search(pattern, question, re.I)]
-    return list(dict.fromkeys(found))[:2]
+    return list(dict.fromkeys(found))[:3]
 
 
 def standing(r: Result, metric: str) -> str:
@@ -86,7 +90,7 @@ def value(r: Result, metric: str) -> Any:
 
 def yes_no(question: str, r: Result, metric: str, high_is_yes: bool) -> str:
     """'Yes.' / 'No.' / 'About average.' for an is/does question, from where he ranks."""
-    if not re.match(r"\s*(?:is|does|do|are|can|has|will)\b", question, re.I):
+    if not re.match(r"\s*(?:is|does|do|are|can|has|will)\b", question, re.I) or re.search(r"\bor\b", question, re.I):
         return ""
     v = (r.get("compared_with_league") or {}).get(metric) or {}
     if "others" not in v:
@@ -102,11 +106,48 @@ def profile(r: Result, question: str, args: Any = None) -> str:
     name = r[kind]
     wanted = asked_stats(question, kind) or [(m, True) for m in (
         ("in_zone_rate", "whiff_rate", "fastball_kmh") if kind == "pitcher" else ("chase_rate", "whiff_rate", "batting_average"))]
-    lead = yes_no(question, r, *wanted[0]) if len(wanted) == 1 else ""
-    parts = [f"{LABELS.get(m, m)} {stat(m, value(r, m))}" + (f", {standing(r, m)}" if standing(r, m) else "")
-             for m, _ in wanted]
+    if kind == "pitcher" and r.get("each_pitch") and re.search(PITCH_QUESTION, question, re.I):
+        return pitch_choice(r, question)
+    leads = {yes_no(question, r, m, high) for m, high in wanted} - {""}
+    lead = leads.pop() if len(leads) == 1 else "Mixed: the stats point different ways. " if leads else ""
+    parts = [_part(r, m) for m, _ in wanted]
     note = f" ({r['note']})" if r.get("note") else ""
-    return f"{lead}{name}{note}: " + "; ".join(parts) + "."
+    return f"{lead}{_which(question, r)}{name}{note}: " + "; ".join(parts) + "."
+
+
+def _part(r: Result, m: str) -> str:
+    if m == "zone_height_cm" and r.get("zone_bottom_cm") is not None:
+        return f"ABS zone {r['zone_bottom_cm']} to {r['zone_top_cm']} cm above the ground ({r['zone_height_cm']} cm tall)"
+    return f"{LABELS.get(m, m)} {stat(m, value(r, m))}" + (f", {standing(r, m)}" if standing(r, m) else "")
+
+
+def _which(question: str, r: Result) -> str:
+    """'Patient hitter.' / 'Free swinger.' for a which-one question, from where his chase rate ranks."""
+    if not (re.search(r"patient", question, re.I) and re.search(r"free.?swing|aggressive", question, re.I)):
+        return ""
+    v = (r.get("compared_with_league") or {}).get("chase_rate") or {}
+    if "others" not in v:
+        return ""
+    if v["others_higher"] > 0.6 * v["others"]:
+        return "A patient hitter: he chases less than most. "
+    return "A free swinger: he chases more than most. " if v["others_lower"] > 0.6 * v["others"] else "In between. "
+
+
+def pitch_choice(r: Result, question: str) -> str:
+    """His main pitch, first-pitch choice or best swing-and-miss pitch, from the pitches in his profile."""
+    pitches, name = r["each_pitch"], r["pitcher"]
+    if re.search(r"first pitch|start\w* .*off", question, re.I) and r.get("first_pitch_of_at_bat_mix"):
+        mix = [(k, v) for k, v in r["first_pitch_of_at_bat_mix"].items() if k != "pitches"][:3]
+        return f"{name} on the first pitch of an at-bat: " + ", ".join(f"{k} {pct(v)}" for k, v in mix) + "."
+    if re.search(r"best|strikeout|put.?away|whiff|miss", question, re.I):
+        used = [a for a in pitches if (a["usage"] or 0) >= 0.02 and a["whiff_rate"] is not None]
+        top = max(used, key=lambda a: a["whiff_rate"]) if used else pitches[0]
+        rates = ", ".join(f"{a['pitch']} {pct(a['whiff_rate'])}" for a in used)
+        return (f"{name}'s pitch with the most swings and misses is his {top['pitch']} ({pct(top['whiff_rate'])} of swings, "
+                f"thrown {pct(top['usage'])} of the time). Whiffs by pitch: {rates}.")
+    main = pitches[0]
+    rest = ", ".join(f"{a['pitch']} {pct(a['usage'])}" for a in pitches[1:4])
+    return f"{name}'s main pitch is the {main['pitch']}: {pct(main['usage'])} of his pitches, {main['avg_kmh']} km/h on average. Then: {rest}."
 
 
 def comparison(results: List[Result], question: str) -> str:
@@ -144,20 +185,26 @@ def _arsenal_overview(r: Result, q: str) -> str:
     pitches = r["arsenal"]
     main = pitches[0]
     text = f"{r['pitcher']}'s main pitch is the {main['pitch']} ({pct(main['usage'])} of his pitches, {main['avg_kmh']} km/h on average)."
-    fastball = next((a for a in pitches if a["pitch"] == "fastball"), None)
-    if fastball and re.search(r"hard|velo|speed|fast", q):
-        text += f" His fastball averages {fastball['avg_kmh']} km/h and tops out at {fastball['max_kmh']} km/h."
-    if re.search(r"whiff|miss|strikeout pitch|strike.?out pitch|best pitch|put.?away", q):
-        used = [a for a in pitches if (a["usage"] or 0) >= 0.05 and a["whiff_rate"] is not None]
+    fastball, asked = next((a for a in pitches if a["pitch"] == "fastball"), None), False
+    if fastball and re.search(r"\bhard|velo|speed|\bfast(?:er|est)?\b|how fast", q):
+        text, asked = text + f" His fastball averages {fastball['avg_kmh']} km/h and tops out at {fastball['max_kmh']} km/h.", True
+    if re.search(r"secondary", q) and r.get("secondary_with_most_whiffs"):
+        best = next(a for a in pitches if a["pitch"] == r["secondary_with_most_whiffs"])
+        text, asked = text + f" His secondary pitch with the most swings and misses is the {best['pitch']} ({pct(best['whiff_rate'])}).", True
+    elif re.search(r"whiff|miss|strikeout pitch|strike.?out pitch|best pitch|put.?away", q):
+        used = [a for a in pitches if (a["usage"] or 0) >= 0.02 and a["whiff_rate"] is not None]
         top = max(used, key=lambda a: a["whiff_rate"]) if used else None
-        return text + (f" The pitch that gets the most swings and misses is his {top['pitch']} ({pct(top['whiff_rate'])} of swings)." if top else "")
+        if top:
+            text += f" The pitch that gets the most swings and misses is his {top['pitch']} ({pct(top['whiff_rate'])}, thrown {pct(top['usage'])})."
+            asked = True
     others = ", ".join(f"{a['pitch']} {pct(a['usage'])}" for a in pitches[1:4])
-    return text + (f" He also throws: {others}." if others else "")
+    return text + ("" if asked or not others else f" He also throws: {others}.")
 
 
 def plan(r: Result, question: str, args: Any = None) -> str:
     b = r["best"][0]
-    who = "" if (args or {}).get("pitcher") else " (against any pitcher in the league; no pitcher was named)"
+    who = (f" (for {r['pitcher']} against {r['batter']})" if r.get("pitcher")
+           else " (against any pitcher in the league; no pitcher was named)")
     text = (f"On {r['count']}, throw a {b['pitch']}{who}: {pct(b['called_strike_chance_if_taken'])} called a strike if he takes it, "
             f"{pct(b['whiff_chance_if_swung_at'])} whiff if he swings, leaving him {b['batter_value_after_runs']} expected runs "
             f"(from {r['batter_value_now_runs']} before the pitch).")
@@ -202,10 +249,10 @@ def lost(r: Result, question: str, args: Any = None) -> str:
 
 def rules(r: Result, question: str, args: Any = None) -> str:
     q, z = question.lower(), r.get("zone_for_this_batter_2025")
-    if z:
+    if z and re.search(r"\d ?cm", q):
         return (f"For a {z['batter_height_cm']:g} cm batter the ABS zone runs from {z['bottom_cm']} cm to {z['top_cm']} cm above "
                 f"the ground: {z['zone_height_cm']} cm tall and {z['width_cm']} cm wide.")
-    if re.search(r"2024|2025|change|differ", q):
+    if re.search(r"2024|season", q):
         c = r["change_2024_to_2025"]
         moved = abs(c["top_moved_share_of_height"]) * 100
         return f"From 2024 to 2025 the zone kept {c['summary']}: top and bottom both moved by {moved:.1f}% of height."
@@ -239,7 +286,7 @@ INTENTS: List[Tuple[str, Tuple[str, ...]]] = [
     (r"\b(?:take|lay\w* off|swing|patient on|aggressive on|sit on|protect)\b", ("take_guide",)),
     (r"\b[0-3]-[0-2]\b|full count|put.?away|what (?:should|do) (?:we|he) throw|the call|the plan", ("recommend_pitch", "attack_plan")),
     (r"likely to throw|throw next|next pitch", ("predict_next_pitch", "pitcher_arsenal")),
-    (r"after an? \w+|left|right|two strikes|first pitch|start|main pitch|best pitch|go-to|rely|lean on|arsenal|throw his",
+    (r"after an? \w+|left|right|two strikes|first pitch|start|main pitch|best pitch|secondary|go-to|rely|lean on|arsenal|throw his",
      ("pitcher_arsenal", "pitcher_profile")),
     (r"back of the plate|lose", ("strikes_lost_at_back", "pitcher_profile")),
     (r"\bzone\b|\babs\b|rule|cm\b", ("abs_rules", "batter_profile")),
@@ -247,8 +294,12 @@ INTENTS: List[Tuple[str, Tuple[str, ...]]] = [
 
 
 def pick(question: str, good: List[Call]) -> str:
-    """The tool whose results answer this question best."""
+    """The tool whose results answer this question best. Players named in the question are compared directly."""
     used = [c["tool"] for c in good]
+    profiled = {(c.get("args") or {}).get(k) for c in good if c["tool"].endswith("_profile") for k in ("pitcher", "batter")}
+    no_count = not re.search(r"\b[0-3]-[0-2]\b|full count", question, re.I)
+    if no_count and len([n for n in profiled if n and n.lower() in question.lower()]) >= 2:
+        return next(c["tool"] for c in good if c["tool"].endswith("_profile"))
     for pattern, preferred in INTENTS:
         if re.search(pattern, question, re.I):
             for tool in preferred:
@@ -273,6 +324,26 @@ def _write(call: Call, question: str) -> str:
         return ""
 
 
+def _one_board(boards: List[Call], question: str) -> Call:
+    """The ranking that fits: of teams for a team question, of one team's players when a team is named."""
+    def fit(c: Call) -> int:
+        a = c.get("args") or {}
+        team_question = bool(re.search(r"\bwhich teams?\b|\bteams?'s?\b", question, re.I))
+        return 2 * (str(a.get("who", "")).startswith("team") == team_question) + bool(a.get("team"))
+    return max(reversed(boards), key=fit)
+
+
+def _height_gap(results: List[Result]) -> str:
+    """How far the zone's top and bottom move between the heights asked about."""
+    zones = sorted((r["zone_for_this_batter_2025"] for r in results if r.get("zone_for_this_batter_2025")),
+                   key=lambda z: z["batter_height_cm"])
+    if len(zones) < 2:
+        return ""
+    lo, hi = zones[0], zones[-1]
+    return (f"From {lo['batter_height_cm']:g} cm to {hi['batter_height_cm']:g} cm, the top moves up "
+            f"{hi['top_cm'] - lo['top_cm']:.1f} cm and the bottom {hi['bottom_cm'] - lo['bottom_cm']:.1f} cm.")
+
+
 def answer(question: str, calls: List[Call], tools: Any, previous: Optional[List[Call]] = None) -> str:
     """The reply the coach shows: written from the results of the tools called for this question (or, for a
     follow-up that called none, the previous question's)."""
@@ -288,7 +359,15 @@ def answer(question: str, calls: List[Call], tools: Any, previous: Optional[List
         return errors[-1] if errors else NOTHING
     tool = pick(question, good)
     group = list({json.dumps([c["tool"], c.get("args")], sort_keys=True): c for c in good if c["tool"] == tool}.values())
-    texts = [_write(c, question) for c in _for_count(group, question)]
+    if tool == "leaderboard":
+        group = [_one_board(group, question)]
+    group = _for_count(group, question)
+    if tool == "take_guide" and len(group) > 1:
+        return " ".join(f"On {result(c)['count']}: " + str(result(c)["summary"]).removeprefix("Verdict: ").split(". ")[0] + "."
+                        for c in group)
+    texts = [_write(c, question) for c in group]
     if tool in ("pitcher_profile", "batter_profile") and len(group) > 1:
         texts.insert(0, comparison([result(c) for c in group], question))
+    if tool == "abs_rules":
+        texts.append(_height_gap([result(c) for c in group]))
     return " ".join(dict.fromkeys(t for t in texts if t)) or NOTHING

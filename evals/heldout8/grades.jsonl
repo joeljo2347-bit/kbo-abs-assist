@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Claims the fastball has his highest whiff rate, but the changeup (0.107) beats it (0.105), and the 'followed by' pitch sequence is invented."}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Says to avoid 'a sinker or any off-plate pitch', but the letter-high sinker on the edge is the second-best option and the tool named only one specific sinker location to avoid."}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "The claim that chasing 'hurts his overall performance' is unsupported: the tool shows an above-average .276 average and a low strikeout rate."}
-{"id": "ae3f054704", "pass": false, "useful": true, "note": "Pastes the raw tool text and never names a pitch to sit on, which is what the question asked."}
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Question asks what he throws first; tool gave first_pitch_of_at_bat_mix (fastball 50.1%, sinker 46.6%) but the answer only lists zone rate, whiff rate and velocity."}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": true, "note": "Asked whether to sit on (hunt) a pitch at 2-0; answer only gives take guidance and never says which pitch to look for or that this isn't available."}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Never compares the two players, gives only Park Ji-hoon's profile and leaves out that Han Yeon-woo wasn't found."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": true, "note": "Gives the league average as 10.0%, but the tool shows 0.096 (9.6%)."}
+{"id": "590ddb527d", "pass": false, "useful": true, "note": "Asked who leads in walks drawn (a count); answer gives walk rate leaders without saying walk totals weren't checked or that rate may differ from total."}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

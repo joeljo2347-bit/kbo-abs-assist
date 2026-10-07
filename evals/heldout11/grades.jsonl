@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Never names his main pitch (fastball) or its 39.5% usage; gives zone, whiff and velocity stats instead."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Says 'Yes' from whiff rate alone and leaves out his .238 average (lower than most) and high chase rate, which point the other way."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "590ddb527d", "pass": false, "useful": true, "note": "No tool result says what the data contains, so the claim that it has no base runners, innings or game scores is unsupported."}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

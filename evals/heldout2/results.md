@@ -1,16 +1,16 @@
 # AI coach, graded blind
 
-**Passed 6/10**, useful 9/10.
+**Passed 7/10**, useful 7/10.
 
 | Question | Pass | Grader's note |
 |---|---|---|
-| How does the ABS strike zone change with a batter's height? | yes |  |
-| How hard does Oh Sung-ho throw his fastball, and what's his best secondary pitch? | no | Calls the slider his best secondary pitch though the tool lists it as primary and names the fastball as the secondary with most whiffs. |
+| How does the ABS strike zone change with a batter's height? | no | Answer covers the 2024-to-2025 change, not how the zone scales with height (fixed shares of height, fixed width), which the tool gave. |
+| How hard does Oh Sung-ho throw his fastball, and what's his best secondary pitch? | no | Answers fastball speed only and never addresses the best secondary pitch, which the tool provided. |
 | How many home runs has Oh Ji-hoon hit? | yes |  |
-| Is Choi Sung-ho's zone rate high or low compared with other pitchers? | yes |  |
+| Is Choi Sung-ho's zone rate high or low compared with other pitchers? | yes | Opening 'No.' doesn't fit a high-or-low question, but the content correctly says lower than most and matches the tool. |
 | Should Jung Seo-jun take the first pitch? | yes |  |
-| We face Lim Dong-hyun with a full count. What should Yoon Seo-jun throw? | no | 'Avoid a splitter or any pitch below the zone' overgeneralizes the two specific worst pitches the tool listed. |
-| What does Kim Sung-ho usually throw after a slider? | no | Misreads the 22% fastball share after a slider as a follow-up after the sinker ('then switches back'). |
-| Which KT Wiz hitter whiffs the most? | yes |  |
+| We face Lim Dong-hyun with a full count. What should Yoon Seo-jun throw? | yes |  |
+| What does Kim Sung-ho usually throw after a slider? | yes |  |
+| Which KT Wiz hitter whiffs the most? | no | Asked about KT Wiz, but answer lists league-wide leaders from other teams; KT's top hitter in the data (Cho Sung-ho, 14.0%) is never named. |
 | Which team's pitchers throw the most pitches in the strike zone? | yes |  |
-| Who chases more on the Kiwoom Heroes, Jang Seung-min or Cho Ha-jun? | no | Treats a hitter chase question as a pitcher one (pitcher leaderboards, 'no pitcher named'), and never looked up Cho Ha-jun. |
+| Who chases more on the Kiwoom Heroes, Jang Seung-min or Cho Ha-jun? | yes |  |

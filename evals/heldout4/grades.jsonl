@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "The tool gave no split by batter hand, but the answer presents the overall 37% changeup usage as his mix against right-handers."}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Calls the walk rate a share of his pitches rather than of plate appearances, and says he walks fewer than most when the tool says middle of the pack."}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": "Answers via zone swing rate (less aggressive than most) but adds irrelevant zone-height info and no explicit yes/no."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": false, "useful": false, "note": "Question asked 0-1 but the tool was called and answered for a 1-0 count."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
-{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": true, "note": "Question gave no count but answer is restricted to 0-0 (an inconsistent state after a prior pitch) without flagging it isn't his general tendency."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Pads with an unasked team ranking and labels Choi Seo-jun 'highest among players' though the list was filtered to NC only."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Gives only a 180 cm example and never answers whether taller hitters get a bigger zone, though the tool result says they do."}
