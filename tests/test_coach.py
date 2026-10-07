@@ -76,7 +76,7 @@ def test_a_follow_up_can_use_numbers_from_an_earlier_turn(tools):
     pitcher = tools.db.execute("SELECT pitcher FROM pitches LIMIT 1").fetchone()[0]
     rate = tools.call("pitcher_profile", {"pitcher": pitcher})["whiff_rate"]
     coach, convo = Coach(tools, scripted(tool_call("pitcher_profile", pitcher=pitcher),
-                                         {"content": "He's a strike thrower."},
+                                         {"content": f"{pitcher} is a strike thrower."},
                                          {"content": f"Because his whiff rate is {rate * 100:.1f}%."})), Conversation()
     coach.ask(f"Tell me about {pitcher}.", convo)
     out = coach.ask("Why do you say that?", convo)

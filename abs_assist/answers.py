@@ -46,7 +46,9 @@ def board(r: Result) -> Optional[str]:
     first = ", then ".join(f"{x['name']}" + ("" if x["name"] == x.get("team") else f" ({x['team']})") + f" {_stat(m, x[m])}"
                            for x in rows[:3])
     kind = "teams" if str(r.get("who", "")).startswith("team") else "players"
-    return f"Highest {m.replace('_', ' ')} among {kind}: {first}. League average: {_stat(m, r.get('league_average'))}."
+    tied = [x["name"] for x in rows[1:] if x[m] == rows[0][m]]
+    tie = f" {rows[0]['name']} is tied for the lead with {', '.join(tied)}." if tied else ""
+    return f"Highest {m.replace('_', ' ')} among {kind}: {first}.{tie} League average: {_stat(m, r.get('league_average'))}."
 
 
 def arsenal(r: Result) -> Optional[str]:
@@ -89,10 +91,18 @@ def batter(r: Result) -> Optional[str]:
             f"{_stat('batting_average', r.get('batting_average'))} with {r.get('home_runs')} home runs.")
 
 
+def rules(r: Result) -> Optional[str]:
+    z = r.get("zone_for_this_batter_2025")
+    if not z:
+        return None
+    return (f"For a {z['batter_height_cm']:g} cm batter, the ABS zone runs from {z['bottom_cm']} cm to {z['top_cm']} cm above "
+            f"the ground: {z['zone_height_cm']} cm tall and {z['width_cm']} cm wide.")
+
+
 WRITERS: Dict[str, Callable[[Result], Optional[str]]] = {
     "recommend_pitch": pitch_plan, "attack_plan": pitch_plan, "take_guide": take, "leaderboard": board,
     "pitcher_arsenal": arsenal, "predict_next_pitch": predict, "strikes_lost_at_back": lost,
-    "pitcher_profile": pitcher, "batter_profile": batter,
+    "pitcher_profile": pitcher, "batter_profile": batter, "abs_rules": rules,
 }
 
 

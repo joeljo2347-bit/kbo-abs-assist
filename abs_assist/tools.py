@@ -66,8 +66,9 @@ SCHEMA: List[Dict[str, Any]] = [
                                             "(to compare teams' pitchers)"),
                     "team": _param("string", "limit players to one team, or empty for the league")}},
     {"name": "abs_rules", "description": "The KBO's published ABS zone rules, how the zone follows the batter's height, and how "
-                                      "often low pitches of each type are called balls (the two-plane effect).",
-     "parameters": {}},
+                                      "often low pitches of each type are called balls (the two-plane effect). Give a "
+                                      "batter's height to get his zone.",
+     "parameters": {"batter_height_cm": _param("number", "a batter's height in cm, for his zone (optional)")}},
     {"name": "strikes_lost_at_back",
      "description": "Taken pitches in the zone at the middle of the plate but called balls at the back edge, for one team's "
                     "pitchers. To compare teams or pitchers, use leaderboard with strikes_lost_at_back_rate.",
@@ -115,9 +116,14 @@ class Toolbox:
 
     def pitcher_profile(self, pitcher: str) -> Dict[str, Any]:
         out = pitcher_profile(self.db, pitcher)
-        line = self.league.qualified("pitcher").get(pitcher, {})
-        return out if "error" in out else {**out, "fastball_kmh": line.get("fastball_kmh"),
-                                           "compared_with_league": context(self.league, "pitcher", pitcher, PITCHER_METRICS)}
+        if "error" in out:
+            return out
+        line, pitches = self.league.qualified("pitcher").get(pitcher, {}), arsenal(self.db, pitcher)
+        return {**out, "fastball_kmh": line.get("fastball_kmh"),
+                "each_pitch": [{k: a[k] for k in ("pitch", "role", "usage", "avg_kmh", "whiff_rate")} for a in pitches["arsenal"]],
+                "secondary_with_most_whiffs": pitches["secondary_with_most_whiffs"],
+                "first_pitch_of_at_bat_mix": pitches["mix_by_situation"]["first_pitch_of_at_bat"],
+                "compared_with_league": context(self.league, "pitcher", pitcher, PITCHER_METRICS)}
 
     def batter_profile(self, batter: str) -> Dict[str, Any]:
         out = batter_profile(self.db, batter)
@@ -126,7 +132,19 @@ class Toolbox:
         return out if "error" in out else {**out, **stats,
                                            "compared_with_league": context(self.league, "batter", batter, BATTER_METRICS)}
 
-    def abs_rules(self) -> Dict[str, Any]:
+    def abs_rules(self, batter_height_cm: Any = None) -> Dict[str, Any]:
+        out = self._rules()
+        if batter_height_cm in (None, ""):
+            return out
+        height = float(batter_height_cm)
+        if not 120 <= height <= 230:
+            return {"error": "batter_height_cm must be between 120 and 230."}
+        bottom, top = height * SEASON_SHARES[2025][1], height * SEASON_SHARES[2025][0]
+        zone = {"batter_height_cm": height, "bottom_cm": round(bottom, 1), "top_cm": round(top, 1),
+                "zone_height_cm": round(top - bottom, 1), "width_cm": ZONE_WIDTH_CM}
+        return {**out, "zone_for_this_batter_2025": zone}
+
+    def _rules(self) -> Dict[str, Any]:
         shares = {str(y): {"top_share_of_height": t, "bottom_share_of_height": b} for y, (t, b) in SEASON_SHARES.items()}
         return {"how_to_read": "The zone's top and bottom are fixed shares of the batter's height, so taller batters get a "
                                "higher, taller zone; the width is the same 47.18 cm for everyone, so the shape changes too. "
@@ -139,6 +157,9 @@ class Toolbox:
                                                  "top": round(180 * SEASON_SHARES[2025][0], 1)},
                 "change_2024_to_2025": zone_change(2024, 2025),
                 "low_pitches": self.league.cached("low_pitches", lambda: low_pitch_calls(self.db))}
+
+    def batters(self) -> List[str]:
+        return self.league.cached("batter_names", lambda: [b for (b,) in self.db.execute("SELECT DISTINCT batter FROM pitches")])
 
     def pitchers(self) -> List[str]:
         return self.league.cached("pitcher_names", lambda: [p for (p,) in self.db.execute("SELECT DISTINCT pitcher FROM pitches")])

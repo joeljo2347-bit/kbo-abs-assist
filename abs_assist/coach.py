@@ -17,7 +17,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from abs_assist import visuals
+from abs_assist import fallback, visuals
 from abs_assist.tools import SCHEMA, Toolbox
 
 MAX_ROUNDS, KEEP_MESSAGES = 10, 40
@@ -199,21 +199,26 @@ def stance_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
     return []
 
 
-def code_answer(calls: List[Dict[str, Any]]) -> str:
-    """The code-written answer of the latest tool that has one (of every call to it, when it was called for
-    several players): shown when the model's rewrite still fails, or the step limit is reached."""
-    written = []
-    for c in calls:
-        try:
-            text = json.loads(c["result"]).get("answer")
-        except (ValueError, AttributeError):
-            continue
-        if text:
-            written.append((c["tool"], str(text)))
-    if not written:
-        return ""
-    last = written[-1][0]
-    return " ".join(dict.fromkeys(t for tool, t in written if tool == last))
+_SIZE_WORDS = re.compile(r"\b(?:shr[ae]nk|smaller|narrower|bigger|larger|grew|wider|shorter|taller)\b", re.I)
+_UNAVAILABLE = re.compile(r"not (?:available|tracked|in the data)|isn't available|doesn't (?:have|track)|don't (?:have|track)|no data", re.I)
+
+
+def zone_size_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """Saying the zone changed size between seasons, when the rules say it kept the same share of height."""
+    rules = next((c for c in calls if c["tool"] == "abs_rules"), None)
+    same = rules and "same share" in str(json.loads(rules["result"]).get("change_2024_to_2025", {}).get("summary", ""))
+    if same and re.search(r"2024|2025|season", answer) and _SIZE_WORDS.search(answer):
+        return ["a change in the zone's size between seasons (the rules say it kept the same share of height and moved lower)"]
+    return []
+
+
+def non_answer(question: str, answer: str, calls: List[Dict[str, Any]]) -> List[str]:
+    """A reply with no number, no name from the question and no 'not available', after tools returned data."""
+    names = re.findall(r"\b[A-Z][a-z]+ [A-Z][a-z]+(?:-[a-z]+)?\b", question)
+    looked = any(c["tool"] != "find_players" and "error" not in c.get("result", "") for c in calls)
+    if looked and not re.search(r"\d", answer) and not any(n in answer for n in names) and not _UNAVAILABLE.search(answer):
+        return ["an answer that doesn't use what the tools returned"]
+    return []
 
 
 def location_problems(answer: str, calls: List[Dict[str, Any]]) -> List[str]:
@@ -339,7 +344,8 @@ class Coach:
         """Everything the checks in code send back about one answer."""
         return (problems(answer, convo.evidence + " " + RULE_FACTS) + unlabeled_runs(answer, convo.evidence)
                 + count_problems(question, calls) + scope_problems(question, calls) + stance_problems(answer, calls)
-                + yes_no_problems(answer, calls) + location_problems(answer, calls)
+                + yes_no_problems(answer, calls) + location_problems(answer, calls) + zone_size_problems(answer, calls)
+                + non_answer(question, answer, calls)
                 + routing_problems(question, calls, self.tools.pitchers()) + ([] if convo.evidence else [UNLOOKED]))
 
     def _ask(self, question: str, convo: Conversation) -> Dict[str, Any]:
@@ -353,12 +359,12 @@ class Coach:
                 continue
             bad = self._problems(question, answer, calls, convo)
             if not bad or check is not None:
-                final = answer if not (check and bad) else (code_answer(calls) or answer)
+                final = answer if not (check and bad) else (fallback.best(question, calls, self.tools) or answer)
                 break
             check = {"role": "user", "content": CHECK.format(bad="; ".join(bad))}
             convo.messages.append(check)
         _drop_rejected(convo, check)  # a rejected answer is never returned, even if no rewrite came in time
-        final = final or code_answer(calls) or "I couldn't finish that within the step limit."
+        final = final or fallback.best(question, calls, self.tools) or "I couldn't finish that within the step limit."
         return {"answer": final, "corrected": check is not None,
                 "tools_used": [c["tool"] for c in calls], "calls": calls, "visuals": visuals.for_calls(calls),
                 "conversation": convo}

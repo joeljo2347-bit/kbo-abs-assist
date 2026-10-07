@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Calls the listed takes 'four pitch types' when they are three types (four pitch/location entries), and skips the in-zone swing guidance."}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Drops 'above the zone' from three of the four pitch locations, so 'a splitter over the middle' reads as an in-zone pitch to lay off."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Misreads the 54% overall in-zone rate as the fastball's, and the 'KBO starter' comparison is not supported."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
 {"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Calls him a solid contact hitter partly from a lower zone-swing rate, which does not measure contact, and leaves out his below-most batting average."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Gives the overall two-strike mix as his mix vs left-handers with two strikes; the tool has no combined split."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Says the 9.9% whiff rate is above the 10.8% league average, which is false; it is below, and that undercuts the 'not a contact hitter' verdict."}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Presents the overall two-strike mix and season-wide whiff rates as his mix against lefties with two strikes; the data has no split that combines the two."}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Misreads walk_rate (walks per batter faced) as a share of at-bats."}
-{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Calls the walk rate a share of at-bats, but the tool defines it per batter faced, and walks are not at-bats."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Gives the 180 cm example instead of working out the 175 cm answer (0.2704 x 175 = about 47.3 cm)."}

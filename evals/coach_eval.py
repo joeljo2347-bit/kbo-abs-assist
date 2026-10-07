@@ -6,7 +6,7 @@
 
 Add `heldout` (e.g. `run heldout`) for the held-out set: ten questions written after the coach was
 last changed, never used to change it, run once and reported as they came out (evals/heldout/).
-`heldout2` to `heldout8` were each written and committed before the changes that followed the set before.
+`heldout2` to `heldout9` were each written and committed before the changes that followed the set before.
 
 The questions use real names from the simulated league and include traps: data the tools don't
 have (ERA), and questions that need several lookups. The grader sees only each question, every
@@ -211,12 +211,31 @@ def heldout8_questions(tb: Toolbox) -> List[str]:
     ]
 
 
+def heldout9_questions(tb: Toolbox) -> List[str]:
+    """A ninth held-out set, committed with the fallback fixes and before any run of it."""
+    ssg, doosan, kiwoom = tb.find_players("SSG Landers"), tb.find_players("Doosan Bears"), tb.find_players("Kiwoom Heroes")
+    lg, kt = tb.find_players("LG Twins"), tb.find_players("KT Wiz")
+    return [
+        f"Who chases less, {ssg['batters'][5]} or {doosan['batters'][5]}?",
+        f"What's {kiwoom['pitchers'][3]}'s best pitch for getting whiffs?",
+        "Which team's pitchers have the highest strikeout rate?",
+        f"Count is 1-0, {lg['pitchers'][2]} pitching to {kt['batters'][7]}. What should he throw?",
+        f"Is {ssg['batters'][6]} a power hitter?",
+        "How big is the ABS zone for a 168 cm hitter?",
+        f"Should {doosan['batters'][6]} take more pitches when ahead 2-1?",
+        f"What's {kiwoom['batters'][4]}'s batting average with two strikes?",
+        f"How often does {kt['pitchers'][4]} throw a first-pitch fastball?",
+        "Who are the toughest batters to strike out in the league?",
+    ]
+
+
 def run() -> None:
     tb = Toolbox(build_store(Path("data/abs.db")))
     coach, out = Coach(tb, http_chat()), []
     pick = {"dev": questions, "heldout": heldout_questions, "heldout2": heldout2_questions, "heldout3": heldout3_questions,
             "heldout4": heldout4_questions, "heldout5": heldout5_questions,
-            "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions}[SET]
+            "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions,
+            "heldout9": heldout9_questions}[SET]
     for q in pick(tb):
         r = coach.ask(q)
         out.append({"question": q, "calls": r["calls"], "answer": r["answer"], "corrected": r["corrected"]})

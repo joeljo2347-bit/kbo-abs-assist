@@ -202,7 +202,8 @@ def situational_mix(data: List[Row]) -> Dict[str, Any]:
     """Pitch mix against left- and right-handed batters, and with two strikes."""
     return {"vs_left_handed_batters": _mix([r for r in data if r["batter_side"] == "L"]),
             "vs_right_handed_batters": _mix([r for r in data if r["batter_side"] == "R"]),
-            "with_two_strikes": _mix([r for r in data if r["strikes"] == 2])}
+            "with_two_strikes": _mix([r for r in data if r["strikes"] == 2]),
+            "first_pitch_of_at_bat": _mix([r for r in data if r["balls"] == 0 and r["strikes"] == 0])}
 
 
 def _pitch_line(kind: str, data: List[Row], total: int) -> Dict[str, Any]:

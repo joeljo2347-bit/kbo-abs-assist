@@ -263,3 +263,27 @@ def test_step_limit_returns_what_was_looked_up(tools):
     queue = [call("pitcher_profile", pitcher=p) for p in pitchers] * 5
     out = Coach(tools, lambda m, s: queue.pop(0)).ask(f"Who misses more bats, {pitchers[0]} or {pitchers[1]}?")
     assert pitchers[0] in out["answer"] and pitchers[1] in out["answer"]
+
+
+def test_final_round_fallbacks(tools):
+    from abs_assist import fallback
+    from abs_assist.coach import non_answer, zone_size_problems
+    rules = tools.call("abs_rules", {"batter_height_cm": 175})
+    assert rules["zone_for_this_batter_2025"]["bottom_cm"] == round(175 * 0.2704, 1) and "175 cm batter" in rules["answer"]
+    assert "error" in tools.call("abs_rules", {"batter_height_cm": 400})
+    rule_call = [{"tool": "abs_rules", "result": json.dumps(rules)}]
+    assert zone_size_problems("The 2025 zone shrank.", rule_call)
+    assert not zone_size_problems("The 2025 zone sits 1.1 cm lower.", rule_call)
+    profile = [{"tool": "pitcher_profile", "result": "{}"}]
+    assert non_answer("Who chases more, Kim Do-yun or Lee Ji-ho?", "Happy to help with that!", profile)
+    assert not non_answer("What's Kim Do-yun's ERA?", "ERA isn't available in this data.", profile)
+    pitchers = tools.find_players("LG Twins")["pitchers"][:2]
+    calls = [{"tool": "pitcher_profile", "result": json.dumps(tools.call("pitcher_profile", {"pitcher": p}))} for p in pitchers]
+    assert "is higher on whiff rate" in fallback.code_answer(calls, f"Who misses more bats, {pitchers[0]} or {pitchers[1]}?")
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    plan = [{"tool": "attack_plan", "args": {"batter": batter, "balls": 1, "strikes": 1},
+             "result": json.dumps(tools.call("attack_plan", {"batter": batter, "balls": 1, "strikes": 1}))}]
+    fallback.lookup(f"{pitchers[0]} vs {batter}, 1-1?", tools, plan)
+    assert plan[-1]["tool"] == "recommend_pitch" and plan[-1]["args"]["pitcher"] == pitchers[0]
+    profile_mix = tools.call("pitcher_profile", {"pitcher": pitchers[0]})
+    assert profile_mix["each_pitch"] and profile_mix["first_pitch_of_at_bat_mix"]["pitches"] > 0

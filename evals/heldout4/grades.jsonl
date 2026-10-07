@@ -1,9 +1,9 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": true, "useful": true, "note": "Numbers are correct, but it names the splitter (9%) as the secondary option and leaves out the fastball (34%) vs RHB."}
+{"id": "1a841f217c", "pass": false, "useful": true, "note": "Presents the splitter (9%) as the secondary option vs RHB while omitting the fastball at 34%, which misleads on his second pitch."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "Claims he throws harder than most 'starters', but the tool compares him with qualified pitchers and says nothing about starters."}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Calls walk rate a share of his pitches (unsupported unit) and says he walks less than most pitchers when the tool says middle of the pack."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
 {"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
 {"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
