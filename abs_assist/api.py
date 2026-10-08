@@ -199,7 +199,7 @@ def coach(body: Question, request: Request) -> Dict[str, Any]:
     except (KeyError, IndexError, TypeError, ValueError, AttributeError) as exc:
         raise HTTPException(503, f"The model server sent a reply the coach couldn't read: {exc!r}") from None
     return {"conversation_id": conversation_id, "answer": out["answer"],
-            "tools_used": out["tools_used"], "corrected": out["corrected"], "visuals": out["visuals"]}
+            "tools_used": out["tools_used"], "visuals": out["visuals"]}
 
 
 def create_app(db: Optional[sqlite3.Connection] = None, chat=None) -> FastAPI:

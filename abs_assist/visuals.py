@@ -42,7 +42,7 @@ def recommend(r: Dict[str, Any]) -> List[Block]:
         {"type": "tiles", "items": [
             {"label": "Called a strike if he takes it", "value": pct(best["called_strike_chance_if_taken"])},
             {"label": "He misses if he swings", "value": pct(best["whiff_chance_if_swung_at"])},
-            {"label": "Hitter's expected runs per 100 plate appearances",
+            {"label": "Hitter's run value per 100 plate appearances",
              "value": per100(best["batter_value_after_runs"]), "note": f"down from {per100(r['batter_value_now_runs'])} now"}]},
     ] + _avoid(r.get("worst") or [])
 

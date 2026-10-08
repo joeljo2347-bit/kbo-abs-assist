@@ -1,4 +1,4 @@
-"""The coach loop and its number check, with a scripted model (no model server needed)."""
+"""The coach loop with a scripted model (no model server needed): tool calls, conversations, trimming, errors."""
 
 import json
 
@@ -36,7 +36,7 @@ def test_answers_from_a_tool(tools):
     coach = Coach(tools, scripted(tool_call("pitcher_profile", pitcher=pitcher),
                                   {"content": f"His whiff rate is {rate * 100:.1f}%."}))
     out = coach.ask(f"How often does {pitcher} get whiffs?")
-    assert out["tools_used"] == ["pitcher_profile"] and not out["corrected"]
+    assert out["tools_used"] == ["pitcher_profile"]
 
 
 def test_tool_errors_are_reported_not_raised(tools):
@@ -61,7 +61,7 @@ def test_a_follow_up_can_use_numbers_from_an_earlier_turn(tools):
                                          {"content": f"Because his whiff rate is {rate * 100:.1f}%."})), Conversation()
     coach.ask(f"Tell me about {pitcher}.", convo)
     out = coach.ask("Why do you say that?", convo)
-    assert not out["corrected"] and out["tools_used"] == []
+    assert out["tools_used"] == []
     assert [m["role"] for m in convo.messages].count("user") == 2
 
 

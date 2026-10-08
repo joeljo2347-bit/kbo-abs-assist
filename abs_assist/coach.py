@@ -170,5 +170,5 @@ class Coach:
         else:
             convo.messages.append({"role": "assistant", "content": final})
         convo.last_calls = calls or convo.last_calls
-        return {"answer": final, "corrected": False, "tools_used": [c["tool"] for c in calls], "calls": calls,
+        return {"answer": final, "tools_used": [c["tool"] for c in calls], "calls": calls,
                 "visuals": visuals.for_calls(calls), "conversation": convo}

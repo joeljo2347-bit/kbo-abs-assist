@@ -69,8 +69,8 @@ flowchart LR
 | ABS engine | The published KBO zone: top and bottom as a share of the batter's height (55.75% / 27.04% in 2025, 56.35% / 27.64% in 2024), checked at the middle and back of the plate; sides 47.18 cm, checked at the middle. Every call names the edge that decided it | `abs_assist/zone.py` |
 | Collector | Validates each pitch event (including handedness and movement), calls it by the rules, flags feed calls that disagree, refuses duplicates | `abs_assist/collect.py` |
 | Scouting | Arsenal by usage with velocity, break and outcome rates; filters for batter side, speed and break | `abs_assist/scouting.py` |
-| Strategy | Expected runs for the batter of every pitch type and location in a count, from swing, whiff, foul, contact and called-strike rates, scaled by the batter's tendencies | `abs_assist/strategy.py` |
-| Next-pitch model | Each pitcher's choices by batter side, count and previous pitch, backing off to broader patterns when data is thin. Updates after every pitch | `abs_assist/predict.py` |
+| Strategy | The batter's expected run value (wOBA-style weights for how the plate appearance ends) after every pitch type and location in a count, from swing, whiff, foul, contact and called-strike rates, scaled by the batter's tendencies | `abs_assist/strategy.py` |
+| Next-pitch model | Each pitcher's choices by batter side, count situation (ahead, behind, even, two strikes) and previous pitch, backing off to broader patterns when data is thin. Updates after every pitch | `abs_assist/predict.py` |
 | Live tracker | Velocity against his own early pitches today (beyond normal noise), zone rate against his norm, pitch-count milestones | `abs_assist/live.py` |
 | AI coach | A language model reads the conversation and picks the analysis tools and their arguments. The answer is then written in code from the results, shaped by what was asked (a yes or no from where a player ranks, a comparison, a split, a count), and code fills in lookups the model skipped. The model's own wording is never shown | `abs_assist/coach.py`, `compose.py`, `fallback.py`, `tools.py`, `visuals.py` |
 
@@ -156,8 +156,8 @@ All fourteen sets (the original ten questions and held-out sets 1-13) rerun and 
 design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
 [13](evals/heldout13/results.md)). Sets 1-12 had been seen while building it, so treat 132/140 as the
 level on known kinds of question and the held-out sets as the test of new ones. The remaining misses
-are wording (a take-or-swing lead that overstated, a rounding of 3.55% to 3.5%) and one model-server
-error; all three are fixed since, and those fixes have not been through a fresh held-out set yet.
+are wording (a take-or-swing lead that overstated, a share stored too coarsely so 3.545% showed as 3.6%)
+and one model-server error; all three are fixed since, and those fixes have not been through a fresh held-out set yet.
 
 ## Run it
 
@@ -194,7 +194,7 @@ python -m evals.coach_eval run heldout13  # a held-out set (heldout, heldout2 ..
   written in code from their results.
 - **Honest evaluation.** Calibration checked on a fresh season, held-out seasons for anything tuned,
   a ceiling for prediction, and blind grading for the coach, with failures published.
-- Every function is under 30 lines, enforced by a test; ruff and mypy run in CI.
+- Every function is 30 lines or fewer, enforced by a test; ruff and mypy run in CI.
 
 ## Limits
 

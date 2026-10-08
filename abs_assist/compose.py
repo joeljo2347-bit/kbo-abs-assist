@@ -46,7 +46,7 @@ PITCHER_WORDS: List[Tuple[str, str, bool]] = [
 
 
 def pct(x: Optional[float]) -> str:
-    return "–" if x is None else f"{round(x * 100 + 1e-9, 1):.1f}%"  # 0.0355 -> 3.6%, not 3.5%
+    return "–" if x is None else f"{round(x * 100 + 1e-9, 1):.1f}%"  # the nudge keeps 0.0355 from showing as 3.5%
 
 
 def stat(metric: str, v: Any) -> str:
@@ -220,7 +220,7 @@ def plan(r: Result, question: str, args: Any = None) -> str:
     who = (f" (for {r['pitcher']} against {r['batter']})" if r.get("pitcher")
            else " (against any pitcher in the league; no pitcher was named)")
     text = (f"On {r['count']}, throw a {b['pitch']}{who}: {pct(b['called_strike_chance_if_taken'])} called a strike if he takes it, "
-            f"{pct(b['whiff_chance_if_swung_at'])} whiff if he swings, leaving him {b['batter_value_after_runs']} expected runs "
+            f"{pct(b['whiff_chance_if_swung_at'])} whiff if he swings, leaving him a run value of {b['batter_value_after_runs']} "
             f"(from {r['batter_value_now_runs']} before the pitch).")
     nxt = "; ".join(x["pitch"] for x in r["best"][1:3])
     avoid = "; ".join(x["pitch"] for x in r.get("worst", []))

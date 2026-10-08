@@ -129,6 +129,6 @@ def test_a_model_server_error_still_gets_an_answer(tools):
 
 def test_rounding_and_no_repeated_stats(tools):
     from abs_assist.compose import asked_stats, pct
-    assert pct(0.0355) == "3.6%" and pct(0.25) == "25.0%"
+    assert pct(0.0355) == "3.6%" and pct(0.25) == "25.0%" and pct(round(4107 / 115849, 5)) == "3.5%"
     stats = asked_stats("Is he hard to strike out, or does he strike out a lot?", "batter")
     assert [m for m, _ in stats].count("strikeout_rate") == 1

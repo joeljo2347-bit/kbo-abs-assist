@@ -313,8 +313,8 @@ def run() -> None:
         try:
             r = coach.ask(q)
         except Exception as exc:  # a model-server error fails this question, not the run
-            r = {"calls": [], "answer": f"(error: {exc})", "corrected": False}
-        out.append({"question": q, "calls": r["calls"], "answer": r["answer"], "corrected": r["corrected"]})
+            r = {"calls": [], "answer": f"(error: {exc})"}
+        out.append({"question": q, "calls": r["calls"], "answer": r["answer"]})
         print(f"- {q}\n  tools: {[c['tool'] for c in r['calls']]}\n  {r['answer'][:160]!r}")
     RUNS.write_text("\n".join(json.dumps(o) for o in out) + "\n")
 

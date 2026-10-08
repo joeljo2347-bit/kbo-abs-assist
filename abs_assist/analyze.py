@@ -65,7 +65,7 @@ def lost_at_back(data: List[Row]) -> Dict[str, Any]:
                            "by the back edge, so ABS called them balls. share_of_takes: strikes_lost / taken_pitches. "
                            "Totals over every game in the data (games); not per game or per season.",
             "games": len({r["game_id"] for r in data}), "taken_pitches": len(taken), "strikes_lost": len(lost),
-            "share_of_takes": round(len(lost) / max(len(taken), 1), 4),
+            "share_of_takes": round(len(lost) / max(len(taken), 1), 5),  # 4 places would round 3.545% up to 3.55%, then 3.6%
             "by_pitch_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1]))}
 
 

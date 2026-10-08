@@ -132,7 +132,8 @@ def take_summary(better: List[Tuple[float, Key, Dict[str, float]]], rated: List[
             f"the zone, for {out_take}.")
 
 
-READ_ME = ("batter_value_after_runs: the batter's expected runs after this pitch, in runs, not a percentage (lower is "
+READ_ME = ("batter_value_after_runs: the batter's expected run value after this pitch (wOBA-style weights for how the plate "
+           "appearance ends; a value in runs, not a percentage; lower is "
            "better for the pitcher); batter_value_now_runs is the same for the count before the pitch. The fields "
            "ending in _chance are probabilities from 0 to 1.")
 
