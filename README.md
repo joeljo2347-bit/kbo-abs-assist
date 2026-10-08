@@ -175,11 +175,11 @@ runs without one. Docker: `docker build -t kbo-abs-assist . && docker run -p 800
 (add `-e MODEL_URL=... -e MODEL_NAME=...` for the coach).
 
 ```bash
-python -m evals.calibrate           # fit the league to the KBO totals
-python -m evals.predict_eval        # next-pitch prediction
-python -m evals.live_eval           # fatigue alerts, dev vs held-out season
-python -m evals.coach_eval run      # coach answers (needs the model), then packet / score
-python -m evals.coach_eval run heldout13  # a held-out set (heldout, heldout2 ... heldout13)
+.venv/bin/python -m evals.calibrate           # fit the league to the KBO totals
+.venv/bin/python -m evals.predict_eval        # next-pitch prediction
+.venv/bin/python -m evals.live_eval           # fatigue alerts, dev vs held-out season
+.venv/bin/python -m evals.coach_eval run      # coach answers (needs the model), then packet / score
+.venv/bin/python -m evals.coach_eval run heldout13  # a held-out set (heldout, heldout2 ... heldout13)
 ```
 
 ## Design decisions

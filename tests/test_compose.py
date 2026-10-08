@@ -132,3 +132,30 @@ def test_rounding_and_no_repeated_stats(tools):
     assert pct(0.0355) == "3.6%" and pct(0.25) == "25.0%" and pct(round(4107 / 115849, 5)) == "3.5%"
     stats = asked_stats("Is he hard to strike out, or does he strike out a lot?", "batter")
     assert [m for m, _ in stats].count("strikeout_rate") == 1
+
+
+def test_what_a_hitter_actually_does_by_count(tools):
+    batter = tools.find_players("KT Wiz")["batters"][0]
+    profile = [ran(tools, "batter_profile", batter=batter)]
+    two_oh = answer(f"In a 2-0 count, does {batter} swing or take?", profile, tools)
+    assert f"{batter} on 2-0: swings at" in two_oh and "pitches seen" in two_oh
+    early = answer(f"How aggressive is {batter} early in the count?", profile, tools)
+    assert "on the first pitch" in early
+
+
+def test_pitch_level_questions(tools):
+    a, b = tools.find_players("LG Twins")["pitchers"][:2]
+    arsenal = [ran(tools, "pitcher_arsenal", pitcher=a)]
+    assert "misses the most bats" in answer(f"Velo on each pitch for {a}?", arsenal, tools)
+    after = answer(f"After {a} throws a fastball, what usually comes next?", arsenal, tools)
+    assert after.startswith("After a fastball")
+    profiles = [ran(tools, "pitcher_profile", pitcher=p) for p in (a, b)]
+    shared = {x["pitch"] for x in json.loads(profiles[0]["result"])["each_pitch"]} & \
+             {x["pitch"] for x in json.loads(profiles[1]["result"])["each_pitch"]}
+    pitch = sorted(shared)[0]
+    assert "gets more swings and misses" in answer(f"{a} or {b}: whose {pitch} is better?", profiles, tools)
+
+
+def test_ranking_follows_the_stat_asked(tools):
+    wrong = ran(tools, "leaderboard", metric="zone_swing_rate", who="team_batting")
+    assert "chase rate among teams" in answer("Which team swings at the most pitches out of the zone?", [wrong], tools)

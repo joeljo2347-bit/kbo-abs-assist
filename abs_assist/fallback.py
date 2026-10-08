@@ -28,6 +28,16 @@ def named(question: str, names: List[str]) -> List[str]:
     return [n for n in names if re.search(rf"(?<![\w-]){re.escape(n)}(?![\w-])", question, re.I)]
 
 
+# A question about what a hitter actually does (not what he should do), by count or situation.
+BEHAVIOR = re.compile(r"\b(?:does|do|will) (?:he|[\w'-]+(?: [\w'-]+){0,2}) (?:actually |usually |really |tend to )?"
+                      r"(?:swing|take|chase|foul|expand|offer|attack|go)\b"
+                      r"|how often does he|\bis he (?:aggressive|patient|swinging|chasing) (?:early|on|in|at|with)|early in (?:the )?counts?"
+                      r"|foul(?:s|ing)? (?:off|pitches)|spoil|sits? on", re.I)
+# "after a slider", "after he throws a slider", "after Park Ha-jun throws a slider"
+AFTER = re.compile(r"\bafter (?:[\w'-]+ ){0,4}?(?:throws? |throwing )?an? (fastball|sinker|slider|changeup|splitter|curveball)", re.I)
+PREDICT = re.compile(r"likely (?:to )?throw|most likely|throw next|next pitch|what[’']?s coming|what is coming|going to throw"
+                     r"|expect (?:him )?to throw|comes next", re.I)
+PITCH_NAMES = r"fastball|sinker|slider|changeup|splitter|curveball"
 # Stats the data can't give: it records pitches and how plate appearances ended, not runs, bases or game state.
 UNAVAILABLE = re.compile(r"\b(?:ERA|WAR|RBIs?|runs batted|scoring position|RISP|saves?|wins?|losses|innings pitched|"
                          r"stolen|with runners|home and away|by month)\b", re.I)
@@ -81,8 +91,9 @@ def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
     """A pitch-mix or zone-rules question the model answered with another tool: run the one it needs."""
     used, q = {c["tool"] for c in calls}, question.lower()
     pitcher = _pitcher_in(question, tools, calls)
-    mix = re.search(r"after an? \w+|throw (?:to|against)|left-handed|right-handed|first pitch|start .* off|main pitch|rely|lean on|"
-                    r"secondary|best pitch|throw his", q)
+    mix = AFTER.search(question) or re.search(r"throw (?:to|against)|left-handed|right-handed|lefties|righties|first.?pitch|start\w*"
+                                               r"|main pitch|rely|lean on|secondary|best pitch|throw his|go-to|two strikes|miss bats"
+                                               r"|swing.and.miss|tendenc|arsenal|velo", q)
     if mix and pitcher and "pitcher_arsenal" not in used and not _counts(question):
         _run(tools, calls, "pitcher_arsenal", {"pitcher": pitcher})
     heights = [int(h) for h in re.findall(r"\b(1[2-9]\d|2[0-2]\d) ?cm\b", q)]
@@ -99,8 +110,8 @@ def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
 def _next_pitch(question: str, tools: Any, calls: List[Call]) -> None:
     """'What will he throw next after a curveball on 1-1?': the next-pitch model for that count and pitch."""
     pitcher, counts = named(question, tools.pitchers()), _counts(question)
-    after = re.search(r"after an? (\w+)", question, re.I)
-    if pitcher and counts and re.search(r"\bnext\b|likely to throw", question, re.I) \
+    after = AFTER.search(question)
+    if pitcher and counts and PREDICT.search(question) \
             and not any(c["tool"] == "predict_next_pitch" for c in calls):
         b, s = counts[0]
         _run(tools, calls, "predict_next_pitch", {"pitcher": pitcher[0], "balls": b, "strikes": s,
@@ -123,7 +134,8 @@ def _plans(question: str, tools: Any, calls: List[Call]) -> None:
     """A count with a batter (and maybe a pitcher) named, but no pitch plan or take guide looked up: look one up."""
     batters, pitchers = named(question, tools.batters()), named(question, tools.pitchers())
     trait = r"protect|patient|disciplin|aggressive|free.?swing|contact hitter|power hitter"
-    if batters and re.search(trait, question, re.I) and not any(c["tool"] == "batter_profile" for c in calls):
+    asks_trait = re.search(trait, question, re.I) or BEHAVIOR.search(question)
+    if batters and asks_trait and not any(c["tool"] == "batter_profile" for c in calls):
         _run(tools, calls, "batter_profile", {"batter": batters[0]})
     if not batters or any(c["tool"] in COUNT_TOOLS and "error" not in _result(c) for c in calls):
         return

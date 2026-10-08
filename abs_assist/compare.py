@@ -101,6 +101,8 @@ class League:
                     groups[key].append(r)
             line = {"batter": batter_line, "pitcher": pitcher_line, "team_batting": batter_line, "team_pitching": pitcher_line}
             self.lines = {kind: {name: line[kind](d) for (k, name), d in groups.items() if k == kind} for kind in line}
+            everything = [r for (k, _), d in groups.items() if k == "pitcher" for r in d]
+            self.lines["league"] = {"team_batting": batter_line(everything), "team_pitching": pitcher_line(everything)}
             self.size = size
         return self.lines
 
@@ -118,6 +120,10 @@ class League:
         return {n: v for n, v in pool.items() if v["pitches"] >= floor}
 
     def average(self, kind: str, metric: str) -> Optional[float]:
+        """Players: the average of qualified players. Teams: the whole league pooled (every pitch counts once),
+        so a team ranking's league average matches the league-wide figure."""
+        if kind.startswith("team"):
+            return self._fresh()["league"][kind].get(metric)
         values = [v[metric] for v in self.qualified(kind).values() if v.get(metric) is not None]
         return round(sum(values) / len(values), 3) if values else None
 
@@ -204,10 +210,36 @@ def arsenal(db: sqlite3.Connection, pitcher: str) -> Dict[str, Any]:
 
 
 def _mix(data: List[Row]) -> Dict[str, Any]:
-    counts: Dict[str, int] = defaultdict(int)
+    """Usage of each pitch type, most used first, and the share of swings at it that missed."""
+    by: Dict[str, List[Row]] = defaultdict(list)
     for r in data:
-        counts[r["pitch_type"]] += 1
-    return {"pitches": len(data), **{k: _ratio(v, len(data)) for k, v in sorted(counts.items(), key=lambda kv: -kv[1])}}
+        by[r["pitch_type"]].append(r)
+    order = sorted(by, key=lambda k: -len(by[k]))
+    whiff = {k: _ratio(sum(r["result"] == "whiff" for r in by[k]), sum(r["swing"] for r in by[k])) for k in order}
+    return {"pitches": len(data), "usage": {k: _ratio(len(by[k]), len(data)) for k in order}, "whiff_rate": whiff}
+
+
+SITUATIONS = {"first_pitch": lambda b, s: b == 0 and s == 0, "hitters_counts": lambda b, s: b > s,
+              "pitchers_counts": lambda b, s: s > b, "even": lambda b, s: b == s, "two_strikes": lambda b, s: s == 2}
+
+
+def swing_line(data: List[Row]) -> Dict[str, Any]:
+    """What a hitter actually did on these pitches: swings, at strikes and at balls, misses and fouls."""
+    zone, out, swings = ([r for r in data if r["abs_strike"]], [r for r in data if not r["abs_strike"]],
+                         [r for r in data if r["swing"]])
+    return {"pitches": len(data), "swing_rate": _ratio(len(swings), len(data)),
+            "zone_swing_rate": _ratio(sum(r["swing"] for r in zone), len(zone)),
+            "chase_rate": _ratio(sum(r["swing"] for r in out), len(out)),
+            "whiff_rate": _ratio(sum(r["result"] == "whiff" for r in swings), len(swings)),
+            "foul_rate": _ratio(sum(r["result"] == "foul" for r in swings), len(swings))}
+
+
+def batter_counts(data: List[Row]) -> Dict[str, Any]:
+    """A hitter's actual swing decisions by count and by count situation (hitter's counts = more balls than strikes)."""
+    counts = sorted({(r["balls"], r["strikes"]) for r in data})
+    return {"overall_swings": swing_line(data),
+            "by_count": {f"{b}-{s}": swing_line([r for r in data if (r["balls"], r["strikes"]) == (b, s)]) for b, s in counts},
+            "by_situation": {k: swing_line([r for r in data if f(r["balls"], r["strikes"])]) for k, f in SITUATIONS.items()}}
 
 
 def situational_mix(data: List[Row]) -> Dict[str, Any]:

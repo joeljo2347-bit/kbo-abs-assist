@@ -7,7 +7,7 @@ import unicodedata
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from abs_assist.analyze import batter_profile, lost_at_back, pitcher_profile, rows
-from abs_assist.compare import BATTER_METRICS, PITCHER_METRICS, League, arsenal, context, leaderboard, low_pitch_calls
+from abs_assist.compare import BATTER_METRICS, PITCHER_METRICS, League, arsenal, batter_counts, context, leaderboard, low_pitch_calls
 from abs_assist.predict import PitchPredictor
 from abs_assist.strategy import Strategy
 from abs_assist.zone import SEASON_SHARES, ZONE_WIDTH_CM
@@ -35,7 +35,8 @@ SCHEMA: List[Dict[str, Any]] = [
                                             "back of the plate, each with the league average and his rank.",
      "parameters": {"pitcher": _param("string", "exact pitcher name")}},
     {"name": "batter_profile", "description": "A batter's height, ABS zone, swing, chase and whiff rates, batting average, home runs, "
-                                           "strikeouts and walks, each rate with the league average and his rank.",
+                                           "strikeouts and walks, each rate with the league average and his rank, and what he "
+                                           "actually does by count (swing, chase, whiff and foul rates in each count).",
      "parameters": {"batter": _param("string", "exact batter name")}},
     {"name": "recommend_pitch", "description": "Best and worst pitch types and locations for this pitcher against this batter in a count.",
      "parameters": {"pitcher": _param("string", "exact pitcher name"), "batter": _param("string", "exact batter name"),
@@ -132,7 +133,7 @@ class Toolbox:
         line = self.league.qualified("batter").get(batter, {})
         stats = {k: line.get(k) for k in ("batting_average", "on_base_percentage", "slugging", "hits", "home_runs",
                                           "strikeouts", "walks")}
-        return out if "error" in out else {**out, **stats,
+        return out if "error" in out else {**out, **stats, **batter_counts(rows(self.db, batter=batter)),
                                            "compared_with_league": context(self.league, "batter", batter, BATTER_METRICS)}
 
     def abs_rules(self, batter_height_cm: Any = None) -> Dict[str, Any]:

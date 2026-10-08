@@ -119,7 +119,10 @@ def scout(request: Request, pitcher: str, opponent: Optional[str] = None, side: 
         raise HTTPException(422, "side must be R or L")
     filters = Filters(side or None, (kmh_min, kmh_max), (hb_min, hb_max), (ivb_min, ivb_max))
     with _locked(request):
-        return scouting.scout(_tools(request).db, pitcher, opponent or None, filters)
+        name = _tools(request).resolve(pitcher, "pitcher")
+        if name is None:
+            raise HTTPException(404, f"No pitcher named {pitcher!r}.")
+        return scouting.scout(_tools(request).db, name, opponent or None, filters)
 
 
 @router.get("/api/tool/{name}")
