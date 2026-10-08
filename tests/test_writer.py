@@ -56,3 +56,20 @@ def test_advice_that_contradicts_the_verdict_is_sent_back():
 
 def test_typographic_spaces_dashes_and_quotes_are_english():
     assert writer.style_problems("Top: 102.0 cm. Jang Seung‑min’s bunt‑down isn’t in the data.") == []
+
+
+def test_counts_ranks_and_splits_must_match_the_facts():
+    ranked = call("batter_profile", {"batter": "Kim Do-yun", "pitches": 2390, "compared_with_league": {
+        "zone_swing_rate": {"value": 0.64, "league_average": 0.65, "others_higher": 79, "others_lower": 10, "others": 89}}},
+        batter="Kim Do-yun")
+    text = writer.facts([ranked])
+    assert "rank counting from the lowest 11 of 90" in text
+    assert writer.count_problems("He took 2390 swings.", text) and not writer.count_problems("He saw 2390 pitches.", text)
+    assert writer.rank_problems("His 64.0% is the lowest of 90 hitters.", text)
+    arsenal = call("pitcher_arsenal", {"pitcher": "Han Yeon-woo", "mix_by_situation": {
+        "vs_left_handed_batters": {"pitches": 300, "usage": {"sinker": 0.452}},
+        "vs_right_handed_batters": {"pitches": 400, "usage": {"sinker": 0.486}}}}, pitcher="Han Yeon-woo")
+    mix = writer.facts([arsenal])
+    assert "pitches thrown: 300" in mix
+    assert writer.split_problems("He throws more sinkers to lefties.", mix)
+    assert not writer.split_problems("He throws more sinkers to righties.", mix)

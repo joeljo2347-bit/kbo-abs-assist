@@ -43,8 +43,11 @@ LABELS = {"batter_value_after_runs": "hitter's run value after this pitch", "bat
           "hb_cm": "horizontal break cm", "ivb_cm": "vertical break cm", "avg_kmh": "average km/h", "max_kmh": "top km/h",
           "gain_from_taking_runs": "run value gained by taking", "p_called_strike": "chance it's called a strike",
           "in_zone_rate": "share of pitches in the zone", "others_higher": "qualified others higher",
-          "others_lower": "qualified others lower", "others": "qualified others", "each_pitch": "pitch"}
+          "others_lower": "qualified others lower", "others": "qualified others", "each_pitch": "pitch",
+          "pitches": "pitches seen", "rank_from_highest": "rank counting from the highest",
+          "rank_from_lowest": "rank counting from the lowest"}
 RATE = re.compile(r"rate|usage|chance|share|probabilit|whiff|chase|swing|foul|^p_|^(?:fastball|sinker|slider|changeup|splitter|curveball)$")
+PITCHES = "fastball|sinker|slider|changeup|splitter|curveball"
 THREE_PLACES = ("batting_average", "on_base_percentage", "slugging")
 
 
@@ -80,6 +83,31 @@ def _flatten(prefix: str, v: Any, out: List[str]) -> None:
         out.append(f"{prefix}: {_value(prefix, v)}")
 
 
+def _enrich(v: Any) -> Any:
+    """Explicit ranks next to every league comparison, so 'lowest of 90' is read off, not worked out."""
+    if isinstance(v, dict):
+        out = {k: _enrich(x) for k, x in v.items()}
+        if {"others_higher", "others_lower", "others"} <= out.keys():
+            n = out["others"] + 1
+            out["rank_from_highest"] = f"{out['others_higher'] + 1} of {n}"
+            out["rank_from_lowest"] = f"{out['others_lower'] + 1} of {n}"
+        return out
+    return [_enrich(x) for x in v] if isinstance(v, list) else v
+
+
+def _block(c: Call, r: Dict[str, Any]) -> List[str]:
+    """One tool result as labeled lines; a pitcher's chase rate is the hitters' chasing against him."""
+    if isinstance(r.get("league_average"), float) and RATE.search(str(r.get("metric", ""))):
+        r = {**r, "league_average": _value("rate", r["league_average"])}
+    lines = [f"[{c['tool']} {json.dumps(c.get('args') or {})}]" + (f" Meaning: {r['how_to_read']}" if r.get("how_to_read") else "")]
+    _flatten("", _enrich(r), lines)
+    who = str((c.get("args") or {}).get("who", ""))
+    if c["tool"].startswith("pitcher") or "pitch" in who:
+        lines = [x.replace("chase rate (swings at balls)", "chase rate hitters show against him (swings at his balls)")
+                 .replace("pitches seen", "pitches thrown") for x in lines]
+    return lines
+
+
 def facts(calls: List[Call]) -> str:
     """Every result as labeled lines, one block per tool call, with what the fields mean."""
     lines: List[str] = []
@@ -90,8 +118,7 @@ def facts(calls: List[Call]) -> str:
             continue
         if not isinstance(r, dict) or "error" in r:
             continue
-        lines.append(f"[{c['tool']} {json.dumps(c.get('args') or {})}]" + (f" Meaning: {r['how_to_read']}" if r.get("how_to_read") else ""))
-        _flatten("", r, lines)
+        lines += _block(c, r)
     return "\n".join(lines[:MAX_FACT_LINES])
 
 
@@ -128,6 +155,46 @@ def stance_problems(reply: str, fact_text: str) -> List[str]:
     return []
 
 
+def count_problems(reply: str, fact_text: str) -> List[str]:
+    """A count of pitches called swings, plate appearances or at-bats."""
+    bad = []
+    for n, noun in re.findall(r"(\d[\d,]*) (plate appearances|swings|at-bats|at bats|PAs|batters faced)", reply):
+        if re.search(rf"pitches (?:seen|thrown):? {n.replace(',', '')}\b", fact_text):
+            bad.append(f"{n} called {noun}, but it is a count of pitches")
+    return bad
+
+
+def rank_problems(reply: str, fact_text: str) -> List[str]:
+    """'The lowest of 90' when the facts rank him lower down."""
+    if "[leaderboard" in fact_text or "rank counting from" not in fact_text:
+        return []
+    claim = re.search(r"\b(?:the )?(lowest|highest|fewest|most) (?:of|among|in) (?:all |the )?(?:\d+|league|qualified|players|pitchers|hitters)",
+                      reply, re.I)
+    if not claim:
+        return []
+    side = "lowest" if claim.group(1).lower() in ("lowest", "fewest") else "highest"
+    if not re.search(rf"rank counting from the {side} 1 of", fact_text):
+        return [f"a claim to be the {claim.group(1)} (no rank in the facts is 1 from the {side})"]
+    return []
+
+
+def _usage(fact_text: str, side: str, pitch: str) -> float:
+    m = re.search(rf"vs {side} handed batters > usage: [^\n]*\b{pitch} ([\d.]+)%", fact_text)
+    return float(m.group(1)) if m else -1.0
+
+
+def split_problems(reply: str, fact_text: str) -> List[str]:
+    """'More sliders to lefties' when the split says fewer."""
+    bad = []
+    for word, pitch, side in re.findall(rf"\b(more|fewer|less) ({PITCHES})s? (?:to|against|vs\.?) (lefties|righties|left|right|lefty|righty)",
+                                       reply, re.I):
+        mine = "left" if side.lower().startswith("left") else "right"
+        a, b = _usage(fact_text, mine, pitch.lower()), _usage(fact_text, "right" if mine == "left" else "left", pitch.lower())
+        if a >= 0 and b >= 0 and ((word.lower() == "more") != (a > b)):
+            bad.append(f"{word} {pitch} to {side}, but the split is {a}% against {mine}-handed and {b}% against the others")
+    return bad
+
+
 def problems(reply: str, fact_text: str, question: str) -> List[str]:
     """What in the reply isn't in the facts or the question: numbers, player names, pitch-location words; and
     players the question names that the reply leaves out."""
@@ -140,11 +207,17 @@ def problems(reply: str, fact_text: str, question: str) -> List[str]:
     bad += [f"the name {n}" for n in set(_NAME.findall(reply)) if n not in seen]
     bad += [f'the location "{w}"' for w in set(_PLACE.findall(reply.replace("\u2011", "-"))) if w not in seen]
     return (bad + [f"nothing about {n}, whom the question names" for n in left_out] + style_problems(reply)
-            + stance_problems(reply, fact_text))
+            + stance_problems(reply, fact_text) + count_problems(reply, fact_text) + rank_problems(reply, fact_text)
+            + split_problems(reply, fact_text))
+
+
+TREND = re.compile(r"these days|lately|recently|holding up|trend|this month|over the (?:season|year)|improv|declin|slipp", re.I)
 
 
 def _ask(chat: Chat, question: str, draft: str, fact_text: str, fix: str = "") -> str:
-    user = (f"Question: {question}\n\nDraft answer written by code: {draft}\n\nFacts:\n{fact_text or '(none)'}"
+    trend = ("\n\nThe facts cover the season as a whole, with no dates: say plainly that any change over time isn't in the data."
+             if TREND.search(question) else "")
+    user = (f"Question: {question}\n\nDraft answer written by code: {draft}\n\nFacts:\n{fact_text or '(none)'}{trend}"
             + (f"\n\nYour last reply had problems: {fix}. Rewrite it: plain English sentences, only the facts." if fix else ""))
     reply = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}], [])
     return str(reply.get("content") or "").strip()

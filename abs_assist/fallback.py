@@ -100,7 +100,7 @@ def _skipped_tool(question: str, tools: Any, calls: List[Call]) -> None:
     pitcher = _pitcher_in(question, tools, calls)
     mix = AFTER.search(question) or re.search(r"throw (?:to|against)|left-handed|right-handed|lefties|righties|first.?pitch|start\w*"
                                                r"|main pitch|rely|lean on|secondary|best pitch|throw his|go-to|two strikes|miss bats"
-                                               r"|swing.and.miss|tendenc|arsenal|velo", q)
+                                               r"|swing.and.miss|tendenc|arsenal|velo|ride|sweep|break|movement|carry|shape", q)
     if mix and pitcher and "pitcher_arsenal" not in used and not _counts(question):
         _run(tools, calls, "pitcher_arsenal", {"pitcher": pitcher})
     heights = [int(h) for h in re.findall(r"\b(1[2-9]\d|2[0-2]\d) ?cm\b", q)]
