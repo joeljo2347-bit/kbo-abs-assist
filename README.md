@@ -152,6 +152,22 @@ was flagged). The first held-out set also exposed the original ten-question scor
 |---|---|---|---|
 | Passed when new | [9](evals/heldout11-first-run/results.md) | [8](evals/heldout12-first-run/results.md) | [**10**](evals/heldout13-first-run/results.md) |
 
+**Questions written by someone else.** Sets 1-13 were written by me, in phrasings the code was then tuned to.
+So forty more questions were written by a separate writer who never saw the code, committed before any run
+(`evals/independent_questions.json`), with ten of them sealed until the end:
+
+| Independent set | 14 | 15 | 16 | 17 (sealed) |
+|---|---|---|---|---|
+| First run | [5](evals/set14-first-run/results.md) | [6](evals/set15-first-run/results.md) | [4](evals/set16-first-run/results.md) | [**3**](evals/set17/results.md) |
+| After fixing what 14-16 showed | [9](evals/set14/results.md) | [9](evals/set15/results.md) | [7](evals/set16/results.md) | not tuned on |
+
+This is the most honest number in the repo, and it isn't good: on questions phrased by someone else and never
+seen, the coach answers about 3-5 in 10 correctly. The answer writer in code generalizes to the question shapes
+it was built from, not to every way a coach asks. Its misses are answers to a nearby question (fastball speed
+when asked for velocity and movement on each pitch; one end of a ranking when asked for both), or stats offered
+where the honest answer is "not in this data" (stolen bases, injuries). It never invented a number: every
+figure in every answer comes from a tool.
+
 All fourteen sets (the original ten questions and held-out sets 1-13) rerun and regraded on this
 design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
 [13](evals/heldout13/results.md)). Sets 1-12 had been seen while building it, so treat 132/140 as the
