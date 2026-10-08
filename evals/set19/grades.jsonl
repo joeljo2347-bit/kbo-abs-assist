@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": true, "note": "Break was asked but never given or said to be unavailable, though Oh's slider break was in the arsenal result."}
+{"id": "547b5b7878", "pass": false, "useful": true, "note": "Question asked for break; answer ignores it (Oh's slider break was in the arsenal result, others never fetched) without saying it's unavailable."}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Ignores 'is it holding up' and never says that trend data is not available."}
-{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Swing rate was asked and is in the tool result (39.7%) but was left out, and no patient-or-hacker verdict is given."}
-{"id": "8f236299b4", "pass": false, "useful": true, "note": "'Avoid the splitter' overgeneralizes: only splitters above the zone were listed as worst."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Errors were asked; the answer gives unrelated batting stats and never says fielding data is not available."}
-{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Presents the fastball's 56.0% usage share as its ride; no break data was fetched."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Calls his own 9.2% overall whiff rate the league-wide rate (league is 10.8%), frames usage as 'sitting at', and never addresses 'holding up' (no trend data)."}
+{"id": "ae3f054704", "pass": false, "useful": false, "note": "Says changeup rate is higher vs righties, but it is 24.2% vs RHB and 37.7% vs LHB; self-contradictory summary."}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Claims his 64.0% zone-swing rate is lowest of 90 players, but tool shows 10 others are lower."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "590ddb527d", "pass": false, "useful": false, "note": "Says the zone height shrank, but the tool says height share is unchanged (0.2871 before and after); the zone only moved lower."}
+{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Presents fastball usage (56.0%) as 'ride'; no break data was fetched."}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

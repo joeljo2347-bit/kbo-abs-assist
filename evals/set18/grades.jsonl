@@ -1,10 +1,10 @@
-{"id": "547b5b7878", "pass": false, "useful": false, "note": "Question is about bunting/squeeze ability; answer lists chase, whiff and average without addressing bunting or saying bunt data isn't available."}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "Says 'over 2390 swings' but 2390 is pitches seen, not swings."}
-{"id": "1a841f217c", "pass": false, "useful": true, "note": "Labels the 0-0 first-pitch rates as 'after the first pitch', misreading the situation the numbers describe."}
+{"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "Calls 2390 'swings' when the tool gives 2390 pitches seen."}
+{"id": "1a841f217c", "pass": false, "useful": false, "note": "Ignores the first-pitch data it had and argues 'pound the zone' from his above-average zone swing rate, which points the other way."}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Answer is tied to a 0-0 count the coach never gave, and a 0-0 count can't follow an earlier pitch in the same at-bat."}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": true, "note": "Ignores the lefty batter: batter_side was not passed and the answer does not say the mix is not split by handedness."}
-{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Omits slider and splitter and the fastball's usage, so it doesn't answer what he throws and how often."}
-{"id": "4b515075eb", "pass": false, "useful": true, "note": "Never directly says who is harder to strike out (Choi, marginally) and doesn't note the 0.1-point gap is essentially a tie."}
+{"id": "590ddb527d", "pass": false, "useful": true, "note": "Leaves out the lefty batter: the call didn't pass batter_side and the answer doesn't mention handedness."}
+{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Covers only sinker and fastball and leaves out the slider and splitter, so the arsenal is incomplete."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Never says who is harder to strike out (Choi) or that a 0.1-point gap is negligible, and makes unrelated pitcher leaderboard calls."}

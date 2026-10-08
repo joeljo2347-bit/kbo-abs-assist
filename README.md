@@ -61,7 +61,7 @@ flowchart LR
     D --> S[Strategy<br/>expected value per pitch and location]
     D --> P[Next-pitch model<br/>learns every pitch]
     D --> L[Live tracker<br/>alerts vs his own baseline]
-    A & S & P --> T[Tools] --> AI[AI coach<br/>model picks tools, code writes the answer]
+    A & S & P --> T[Tools] --> AI[AI coach<br/>model picks tools and words the reply, code checks it]
 ```
 
 | Part | What it does | Where |
@@ -72,7 +72,7 @@ flowchart LR
 | Strategy | The batter's expected run value (wOBA-style weights for how the plate appearance ends) after every pitch type and location in a count, from swing, whiff, foul, contact and called-strike rates, scaled by the batter's tendencies | `abs_assist/strategy.py` |
 | Next-pitch model | Each pitcher's choices by batter side, count situation (ahead, behind, even, two strikes) and previous pitch, backing off to broader patterns when data is thin. Updates after every pitch | `abs_assist/predict.py` |
 | Live tracker | Velocity against his own early pitches today (beyond normal noise), zone rate against his norm, pitch-count milestones | `abs_assist/live.py` |
-| AI coach | A language model reads the conversation and picks the analysis tools and their arguments. The answer is then written in code from the results, shaped by what was asked (a yes or no from where a player ranks, a comparison, a split, a count), and code fills in lookups the model skipped. The model's own wording is never shown | `abs_assist/coach.py`, `compose.py`, `fallback.py`, `tools.py`, `visuals.py` |
+| AI coach | A language model reads the conversation and picks the analysis tools and their arguments; code fills in lookups it skipped and writes a draft answer shaped by what was asked. Code then lays out every fact the tools returned, and the model writes the reply from those facts alone. Code checks the reply: every number, player and pitch location must appear in the facts, every player the question names must be answered, no markdown or field names, no advice against the take verdict. A reply that fails gets one rewrite, then the coach shows the code's draft instead | `abs_assist/coach.py`, `writer.py`, `compose.py`, `fallback.py`, `tools.py` |
 
 ## The league: simulated, calibrated to real KBO totals
 
@@ -146,7 +146,7 @@ ways to word things wrong (inverting a comparison, overstating "avoid a splitter
 was flagged). The first held-out set also exposed the original ten-question score
 (9/10, [rounds 1-6](evals/blind-round6/results.md)) as overfit.
 
-**Current design: the model only chooses tools; code writes the answer** (`abs_assist/compose.py`).
+**Second design: the model only chooses tools; code writes the answer** (`abs_assist/compose.py`).
 
 | Held-out set | 11 | 12 | 13 |
 |---|---|---|---|
@@ -161,15 +161,31 @@ So forty more questions were written by a separate writer who never saw the code
 | First run | [5](evals/set14-first-run/results.md) | [6](evals/set15-first-run/results.md) | [4](evals/set16-first-run/results.md) | [**3**](evals/set17/results.md) |
 | After fixing what 14-16 showed | [9](evals/set14/results.md) | [9](evals/set15/results.md) | [7](evals/set16/results.md) | not tuned on |
 
-This is the most honest number in the repo, and it isn't good: on questions phrased by someone else and never
-seen, the coach answers about 3-5 in 10 correctly. The answer writer in code generalizes to the question shapes
+On questions phrased by someone else and never
+seen, the code-written coach answered about 3-5 in 10 correctly. The answer writer in code generalizes to the question shapes
 it was built from, not to every way a coach asks. Its misses are answers to a nearby question (fastball speed
 when asked for velocity and movement on each pitch; one end of a ranking when asked for both), or stats offered
 where the honest answer is "not in this data" (stolen bases, injuries). It never invented a number: every
 figure in every answer comes from a tool.
 
-All fourteen sets (the original ten questions and held-out sets 1-13) rerun and regraded on this
-design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
+
+**Current design: code gathers the facts, the model writes the reply, code checks it** (`abs_assist/writer.py`).
+Developed on sets 14-17 (now seen, so not a test), then measured on sealed independent questions run once:
+
+| Independent set | 14 | 15 | 16 | 17 | 18 (sealed) | 19 (sealed) | 20 (sealed) | 21 (sealed) | 22 (sealed) |
+|---|---|---|---|---|---|---|---|---|---|
+| First run | [9](evals/set14-hybrid/results.md) | [8](evals/set15-hybrid/results.md) | [6](evals/set16-hybrid/results.md) | [5](evals/set17-hybrid/results.md) | [4](evals/set18-first-run/results.md) | [4](evals/set19-first-run/results.md) | [7](evals/set20-first-run/results.md) | [**7**](evals/set21/results.md) | [**5**](evals/set22/results.md) |
+| After a bug fix found while reading 18-20 | | | | | [4](evals/set18/results.md) | [4](evals/set19/results.md) | [9](evals/set20/results.md) | | |
+
+The bug: the English check rejected typographic spaces and dashes, so 17 of 30 good replies on 18-20 fell back to
+the code draft. Sets 21-22 were sealed before that fix was known and run once after it, so **12 of 20** on them is
+the clean measure: about 6 in 10 on questions phrased by someone else and never seen, up from about 3 in 10.
+The remaining misses are a count read as the wrong thing (pitches seen called swings or plate appearances), a
+summary that contradicts its own numbers ("more sinkers to lefties" when the split says fewer), an overstated rank,
+and a part of the question (pitch movement, a trend) neither answered nor said to be missing.
+
+All fourteen sets (the original ten questions and held-out sets 1-13) rerun and regraded on the second
+(code-written) design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
 [13](evals/heldout13/results.md)). Sets 1-12 had been seen while building it, so treat 132/140 as the
 level on known kinds of question and the held-out sets as the test of new ones. The remaining misses
 are wording (a take-or-swing lead that overstated, a share stored too coarsely so 3.545% showed as 3.6%)
