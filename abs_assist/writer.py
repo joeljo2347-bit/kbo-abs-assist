@@ -109,8 +109,8 @@ def style_problems(reply: str) -> List[str]:
     bad = []
     if re.search(r"^\s*(?:[|#]|[-*] |\d+\. )|\*\*|\|", reply, re.M):
         bad.append("markdown (tables, lists or bold): write plain sentences")
-    if re.search(r"[^\x00-\x7F\u2010-\u2027\u00b0\u00d7\u00b7]", reply):
-        bad.append("text that isn't English")
+    if re.search(r"[\u0400-\u04ff\u0590-\u06ff\u0e00-\u0e7f\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u4e00-\u9fff\uac00-\ud7af]", reply):
+        bad.append("text that isn't English")  # another script; typographic spaces, dashes and quotes are fine
     if re.search(r"[a-z]_[a-z]| > ", reply):
         bad.append("internal field names")
     if len(reply) > 700:

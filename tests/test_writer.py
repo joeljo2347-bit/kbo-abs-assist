@@ -52,3 +52,7 @@ def test_advice_that_contradicts_the_verdict_is_sent_back():
     facts = "summary: Verdict: swing at strikes, take balls. In the zone ..."
     assert writer.stance_problems("He should take the first pitch.", facts)
     assert writer.stance_problems("Swing at strikes and take balls.", facts) == []
+
+
+def test_typographic_spaces_dashes_and_quotes_are_english():
+    assert writer.style_problems("Top: 102.0 cm. Jang Seung‑min’s bunt‑down isn’t in the data.") == []

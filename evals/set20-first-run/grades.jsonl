@@ -1,0 +1,10 @@
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Injury question answered with unrelated pitching stats and a misleading 'Mixed: yes/no' verdict instead of saying injury data isn't available."}
+{"id": "3622d4a516", "pass": false, "useful": true, "note": "K rate was asked and available (23.6%) but answer gives batting average instead and omits it."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Pitch clock violations not in data; answer gives unrelated stats instead of saying it isn't available."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
+{"id": "4b515075eb", "pass": true, "useful": true, "note": ""}
