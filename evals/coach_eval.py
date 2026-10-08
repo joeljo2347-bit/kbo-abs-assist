@@ -20,7 +20,7 @@ import json
 import random
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from abs_assist.api import build_store
 from abs_assist.coach import Coach, http_chat
@@ -301,6 +301,13 @@ def heldout13_questions(tb: Toolbox) -> List[str]:
     ]
 
 
+INDEPENDENT = HERE / "independent_questions.json"  # 40 questions written by someone who never saw the code
+
+
+def independent(name: str) -> Callable[[Toolbox], List[str]]:
+    return lambda tb: json.loads(INDEPENDENT.read_text())[name]
+
+
 def run() -> None:
     tb = Toolbox(build_store(Path("data/abs.db")))
     coach, out = Coach(tb, http_chat()), []
@@ -308,7 +315,8 @@ def run() -> None:
             "heldout4": heldout4_questions, "heldout5": heldout5_questions,
             "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions,
             "heldout9": heldout9_questions, "heldout10": heldout10_questions, "heldout11": heldout11_questions,
-            "heldout12": heldout12_questions, "heldout13": heldout13_questions}[SET]
+            "heldout12": heldout12_questions, "heldout13": heldout13_questions,
+            **{f"set{n}": independent(f"set{n}") for n in (14, 15, 16, 17)}}[SET]
     for q in pick(tb):
         try:
             r = coach.ask(q)
