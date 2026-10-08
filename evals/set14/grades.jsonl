@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
-{"id": "3622d4a516", "pass": false, "useful": true, "note": "The question set no count, but the answer is framed as 0-0 after a slider, which can't happen mid at-bat, so its scope is misstated."}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Asked whether he actually swings or takes at 2-0, but the answer gives what he should do and admits it isn't about how often he swings."}
+{"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Never answers 'on what pitch' even though per-pitch whiff rates (splitter 15.2%, curveball 15.1%) were in the tool results."}
+{"id": "0d193c9c08", "pass": true, "useful": true, "note": ""}
 {"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
 {"id": "749774d689", "pass": true, "useful": true, "note": ""}
-{"id": "590ddb527d", "pass": false, "useful": false, "note": "Asked what Kim Ji-hoon is most likely to throw, but answered with a pitch recommendation and never ran a prediction for him."}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Asked for velo on each pitch but leaves out the sinker (142.6 km/h avg)."}
+{"id": "590ddb527d", "pass": false, "useful": false, "note": "Asked what Kim Ji-hoon is most likely to throw, but the answer gives a recommendation instead; the prediction tool was never rerun with Kim Ji-hoon as the pitcher."}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

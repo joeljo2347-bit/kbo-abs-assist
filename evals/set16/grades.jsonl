@@ -1,10 +1,10 @@
 {"id": "547b5b7878", "pass": true, "useful": true, "note": ""}
 {"id": "3622d4a516", "pass": true, "useful": true, "note": ""}
-{"id": "1a841f217c", "pass": false, "useful": false, "note": "Ignores the first-pitch question; the tool's first_pitch_of_at_bat_mix (splitter 56.7%, fastball 38.5%) was never reported."}
+{"id": "1a841f217c", "pass": true, "useful": true, "note": ""}
 {"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
-{"id": "0d193c9c08", "pass": false, "useful": true, "note": "Never answers whether he spoils pitches with two strikes (no foul data, not said to be unavailable); only gives a 0-2 pitch plan."}
-{"id": "8f236299b4", "pass": false, "useful": false, "note": "Asked what the pitcher will throw; answer gives a recommended pitch, not a prediction of Jung Woo-jin's 2-2 tendency."}
-{"id": "749774d689", "pass": false, "useful": false, "note": "Never names his best whiff pitch (curveball 16.7%/slider 16.0%) and answers usage vs lefties instead of swing-and-miss, without saying split whiff data is unavailable."}
-{"id": "590ddb527d", "pass": false, "useful": false, "note": "Compares overall whiff rates instead of the changeups (13.6% vs 13.0% available) and lists Cho Ji-ho twice."}
-{"id": "e4af1022e7", "pass": false, "useful": true, "note": "Reports season-wide zone swing rate as early-count aggressiveness without saying count-specific data isn't available."}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Lists two-strike swing/foul rates but never says whether he spoils pitches or how to pitch him, ignoring the attack_plan results."}
+{"id": "8f236299b4", "pass": false, "useful": false, "note": "Asked what's coming, but it gives a pitch-calling recommendation and ignores the predict_next_pitch result (fastball 54.4%)."}
+{"id": "749774d689", "pass": true, "useful": true, "note": ""}
+{"id": "590ddb527d", "pass": false, "useful": false, "note": "Lists both changeups' stats but never says whose is better, and doesn't note Cho's small sample."}
+{"id": "e4af1022e7", "pass": true, "useful": true, "note": ""}
 {"id": "4b515075eb", "pass": true, "useful": true, "note": ""}

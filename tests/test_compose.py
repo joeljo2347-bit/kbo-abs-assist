@@ -153,7 +153,7 @@ def test_pitch_level_questions(tools):
     shared = {x["pitch"] for x in json.loads(profiles[0]["result"])["each_pitch"]} & \
              {x["pitch"] for x in json.loads(profiles[1]["result"])["each_pitch"]}
     pitch = sorted(shared)[0]
-    assert "gets more swings and misses" in answer(f"{a} or {b}: whose {pitch} is better?", profiles, tools)
+    assert "is the better one" in answer(f"{a} or {b}: whose {pitch} is better?", profiles, tools)
 
 
 def test_ranking_follows_the_stat_asked(tools):

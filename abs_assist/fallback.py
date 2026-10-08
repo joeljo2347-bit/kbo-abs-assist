@@ -78,8 +78,15 @@ def _team_filter(question: str, tools: Any, calls: List[Call]) -> None:
     """The question names a team but the model ranked the whole league: rank that team's players."""
     teams = named(question, tools.teams())
     board = next((c for c in reversed(calls) if c["tool"] == "leaderboard" and isinstance(c.get("args"), dict)), None)
-    if teams and board and not board["args"].get("team") and not str(board["args"].get("who", "")).startswith("team"):
-        _run(tools, calls, "leaderboard", {**board["args"], "team": teams[0]})
+    if not (teams and board):
+        return
+    who = str(board["args"].get("who", "batters"))
+    if board["args"].get("team") and not who.startswith("team"):
+        return
+    if who.startswith("team") and not re.search(r"\bwhich teams?\b|\bteams?'s?\b", question, re.I):
+        who = "batters" if who == "team_batting" else "pitchers"  # "who on the KT Wiz staff..." asks for players
+    if not who.startswith("team"):
+        _run(tools, calls, "leaderboard", {**board["args"], "who": who, "team": teams[0]})
 
 
 def _pitcher_in(question: str, tools: Any, calls: List[Call]) -> Optional[str]:
@@ -112,7 +119,7 @@ def _next_pitch(question: str, tools: Any, calls: List[Call]) -> None:
     pitcher, counts = named(question, tools.pitchers()), _counts(question)
     after = AFTER.search(question)
     if pitcher and counts and PREDICT.search(question) \
-            and not any(c["tool"] == "predict_next_pitch" for c in calls):
+            and not any(c["tool"] == "predict_next_pitch" and "error" not in _result(c) for c in calls):
         b, s = counts[0]
         _run(tools, calls, "predict_next_pitch", {"pitcher": pitcher[0], "balls": b, "strikes": s,
                                                   "previous_pitch": after.group(1).lower() if after else ""})

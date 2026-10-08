@@ -193,10 +193,19 @@ def behavior(r: Result, question: str) -> str:
     if not where[1] or not where[1].get("pitches"):
         return f"There's no record of {r['batter']} in that count."
     s, o = where[1], r["overall_swings"]
+    if re.search(r"spoil|foul", question, re.I):
+        more = (s["foul_rate"] or 0) > (o["foul_rate"] or 0) + 0.02
+        lead = (f"{'Yes' if more else 'Not especially'}: he fouls off {pct(s['foul_rate'])} of his swings {where[0]} "
+                f"({pct(o['foul_rate'])} overall). ")
+        return lead + _behavior_line(r, where, s, o)
     gap = (s["swing_rate"] or 0) - (o["swing_rate"] or 0)
     lead = ("" if where[0] == "overall" else "He swings more than usual here. " if gap > 0.03
             else "He swings less than usual here. " if gap < -0.03 else "About his usual swing rate here. ")
-    return lead + (f"{r['batter']} {where[0]}: swings at {pct(s['swing_rate'])} of pitches ({pct(o['swing_rate'])} overall), "
+    return lead + _behavior_line(r, where, s, o)
+
+
+def _behavior_line(r: Result, where: Tuple[str, Any], s: Result, o: Result) -> str:
+    return (f"{r['batter']} {where[0]}: swings at {pct(s['swing_rate'])} of pitches ({pct(o['swing_rate'])} overall), "
             f"{pct(s['zone_swing_rate'])} of strikes and {pct(s['chase_rate'])} of balls; misses {pct(s['whiff_rate'])} of "
             f"swings and fouls off {pct(s['foul_rate'])} ({s['pitches']} pitches seen).")
 
@@ -235,12 +244,15 @@ def comparison(results: List[Result], question: str) -> str:
 
 def _pitch_comparison(results: List[Result], pitch: str) -> str:
     """Several pitchers' same pitch: swings and misses, usage and speed."""
-    rows = list({r["pitcher"]: (r["pitcher"], next((a for a in r.get("each_pitch", []) if a["pitch"] == pitch), None))
-                 for r in results}.values())
+    rows = list({r["pitcher"]: (r["pitcher"], next((a for a in r.get("each_pitch") or r.get("arsenal") or []
+                                                    if a["pitch"] == pitch), None)) for r in results}.values())
     have = sorted(((n, a) for n, a in rows if a and a["whiff_rate"] is not None), key=lambda na: -na[1]["whiff_rate"])
     missing = [n for n, a in rows if not a]
-    text = "; ".join(f"{n}'s {pitch} {pct(a['whiff_rate'])} whiffs ({pct(a['usage'])} of pitches, {a['avg_kmh']} km/h)" for n, a in have)
-    lead = f"{have[0][0]}'s {pitch} gets more swings and misses. " if len(have) > 1 else ""
+    total = {r["pitcher"]: r.get("pitches") or 0 for r in results}
+    text = "; ".join(f"{n}'s {pitch} {pct(a['whiff_rate'])} whiffs ({pct(a['usage'])} of pitches, about "
+                     f"{round((a['usage'] or 0) * total.get(n, 0))} thrown, {a['avg_kmh']} km/h)" for n, a in have)
+    lead = (f"By swings and misses, {have[0][0]}'s {pitch} is the better one "
+            f"({pct(have[0][1]['whiff_rate'])} vs {pct(have[1][1]['whiff_rate'])}). " if len(have) > 1 else "")
     return lead + text + "." + (f" {', '.join(missing)} doesn't throw one." if missing else "")
 
 
@@ -265,7 +277,10 @@ def _situational(r: Result, q: str, situations: List[Tuple[str, str]]) -> str:
     mix, misses = r["mix_by_situation"], re.search(r"miss|whiff", q)
     lines = [f"{label}: " + ", ".join(f"{k} {pct(v)}" + (f" ({pct(mix[key]['whiff_rate'].get(k))} whiffs)" if misses else "")
                                       for k, v in list(mix[key]["usage"].items())[:4]) for key, label in situations]
-    both = " The data has no split that combines these; each is shown on its own." if len(situations) > 1 else ""
+    keys = {k for k, _ in situations}
+    sides = {"vs_left_handed_batters", "vs_right_handed_batters"}
+    both = (" The data has no split that combines these; each is shown on its own."
+            if keys & sides and keys - sides else "")
     usage = mix[situations[0][0]]["usage"]
     top = max(usage, key=lambda k: usage[k])
     lead = f"His go-to {situations[0][1]} is the {top} ({pct(usage[top])}). " if len(situations) == 1 else ""
@@ -413,9 +428,9 @@ INTENTS: List[Tuple[str, Tuple[str, ...]]] = [
     (r"\b(?:who|which)\b.*\b(?:more|less|fewer|harder|higher|lower|better)\b", ("pitcher_profile", "batter_profile")),
     (fallback.BEHAVIOR.pattern, ("batter_profile", "take_guide")),
     (r"\b(?:take|lay\w* off|swing|patient on|aggressive on|sit on|protect)\b", ("take_guide",)),
+    (fallback.PREDICT.pattern, ("predict_next_pitch", "pitcher_arsenal")),
     (r"\b[0-3]-[0-2]\b|full count|put.?away|what (?:should|do) (?:we|he) throw|the call|the plan", ("recommend_pitch", "attack_plan")),
     (r"^(?!.*\b[0-3]-[0-2]\b)" + fallback.AFTER.pattern, ("pitcher_arsenal",)),
-    (fallback.PREDICT.pattern, ("predict_next_pitch", "pitcher_arsenal")),
     (r"after an? \w+|left|right|two strikes|first pitch|start|main pitch|best pitch|secondary|go-to|rely|lean on|arsenal|throw his",
      ("pitcher_arsenal", "pitcher_profile")),
     (r"back of the plate|lose", ("strikes_lost_at_back", "pitcher_profile")),
@@ -529,8 +544,9 @@ def answer(question: str, calls: List[Call], tools: Any, previous: Optional[List
     if tool == "take_guide" and len(group) > 1:
         return _several_counts(group, good, question)
     texts = [_write(c, question) for c in group]
-    if tool in ("pitcher_profile", "batter_profile") and len(group) > 1:
-        texts.insert(0, comparison([result(c) for c in group], question))
+    if tool in ("pitcher_profile", "batter_profile", "pitcher_arsenal") and len(group) > 1:
+        lead = comparison([result(c) for c in group], question)
+        texts = [lead] if lead.startswith("By swings and misses") else [lead, *texts]  # a pitch comparison says it all
     if tool == "abs_rules":
         texts.append(_height_gap([result(c) for c in group]))
     return " ".join(dict.fromkeys(t for t in texts if t)) or NOTHING
