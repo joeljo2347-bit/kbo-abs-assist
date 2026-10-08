@@ -46,3 +46,9 @@ def test_style_problems():
     assert writer.style_problems("김도윤은 좋은 타자다")
     assert writer.style_problems("next_pitch_after > fastball: 50%")
     assert writer.style_problems("He swings at 46.1% of first pitches — above his 44.0% overall.") == []
+
+
+def test_advice_that_contradicts_the_verdict_is_sent_back():
+    facts = "summary: Verdict: swing at strikes, take balls. In the zone ..."
+    assert writer.stance_problems("He should take the first pitch.", facts)
+    assert writer.stance_problems("Swing at strikes and take balls.", facts) == []

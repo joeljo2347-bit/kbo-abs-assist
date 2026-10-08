@@ -1,0 +1,10 @@
+{"id": "547b5b7878", "pass": false, "useful": false, "note": "Asked about stolen bases and base-running threat; answer gives batting stats and never says steal data isn't available."}
+{"id": "3622d4a516", "pass": false, "useful": false, "note": "Asked to rank teams by strikeout rate (most and least); answer only lists the three lowest team-pitching whiff rates, not a strikeout-rate ranking."}
+{"id": "1a841f217c", "pass": false, "useful": true, "note": "Question is about after a fastball for a strike; answer uses all fastballs without saying the strike condition isn't in the data."}
+{"id": "ae3f054704", "pass": true, "useful": true, "note": ""}
+{"id": "0d193c9c08", "pass": false, "useful": false, "note": "Asked for velo and movement of each pitch; answer covers only fastball velocity, with no movement and no other pitches."}
+{"id": "8f236299b4", "pass": true, "useful": true, "note": ""}
+{"id": "749774d689", "pass": false, "useful": false, "note": "Injury and contract data aren't available; answer gives unrelated pitching stats with yes/no labels instead of saying so."}
+{"id": "590ddb527d", "pass": true, "useful": true, "note": ""}
+{"id": "e4af1022e7", "pass": false, "useful": false, "note": "Never answers whether he should take the first pitch; leaves out the take_guide verdict (swing at strikes, take balls)."}
+{"id": "4b515075eb", "pass": false, "useful": false, "note": "Never addresses pop (home runs and slugging were available); compares only whiff rate and batting average."}

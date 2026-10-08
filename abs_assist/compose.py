@@ -31,7 +31,7 @@ PITCH_QUESTION = (r"main pitch|throws? (?:the )?most|rely|lean on|go-to|start\w*
 BATTER_WORDS: List[Tuple[str, str, bool]] = [
     (r"how many strike ?outs", "strikeouts", True), (r"how many walks|walks drawn", "walks", True),
     (r"(?:hard|tough)\w* to strike", "strikeout_rate", False), (r"strike ?outs?|strikes? out", "strikeout_rate", True),
-    (r"power|home runs?|homers?", "home_runs", True), (r"slug", "slugging", True),
+    (r"power|\bpop\b|home runs?|homers?|extra.?base", "home_runs", True), (r"slug|\bpop\b|power", "slugging", True),
     (r"on-base|\bobp\b|get on base", "on_base_percentage", True), (r"contact", "whiff_rate", False),
     (r"contact", "batting_average", True),
     (r"disciplin|patient|lay\w* off|chase|out of the zone|outside the zone|off the plate|bad pitches|expand", "chase_rate", False),

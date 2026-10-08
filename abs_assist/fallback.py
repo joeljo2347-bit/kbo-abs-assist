@@ -163,8 +163,11 @@ def _board_fit(tools: Any, calls: List[Call], question: str) -> None:
     if not board:
         return
     a = dict(board["args"])
-    if re.search(r"\bwhich teams?\b|\bteams?'s?\b", question, re.I) and not str(a.get("who", "")).startswith("team"):
-        a["who"], a["team"] = ("team_batting" if re.search(r"hitter|batter|offen", question, re.I) else "team_pitching"), ""
+    if re.search(r"\bwhich teams?\b|\bteams?'s?\b", question, re.I):
+        hitters = re.search(r"hitter|batter|lineup|offen", question, re.I)
+        pitchers = re.search(r"pitcher|staff|rotation|bullpen", question, re.I)
+        side = "team_batting" if hitters and not pitchers else "team_pitching" if pitchers else a.get("who", "")
+        a["who"], a["team"] = (side if str(side).startswith("team") else "team_pitching"), ""
     low = re.search(r"\b(?:least|fewest|lowest|smallest|toughest to strike|hardest to strike)\b", question, re.I)
     high = re.search(r"\b(?:most|highest|biggest|largest|hardest throwers?|best)\b", question, re.I)
     a["order"] = "lowest" if low else "highest" if high else a.get("order", "highest")

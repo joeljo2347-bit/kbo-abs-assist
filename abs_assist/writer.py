@@ -25,7 +25,10 @@ SYSTEM = (
     "markdown. Answer every part of a question with several parts, and when it names several players, give each "
     "one's number and say which is ahead. Draw no conclusion the facts don't state directly, and don't answer yes or "
     "no when the facts don't settle it. If the question adds a condition the facts don't split by (a fastball 'for a "
-    "strike', 'with runners on'), say the facts don't separate it. Write in English, and never mention field or tool "
+    "strike', 'with runners on'), say the facts don't separate it. Compare a number only with the same kind of number "
+    "(a hitter's two-strike rate with the league's two-strike rate or his own overall rate, never with a league "
+    "average over all counts). Never say the data lacks something that appears in the facts. Call a difference of less "
+    "than one percentage point about the same. Write in English, and never mention field or tool "
     "names. The draft answer was written by code and is correct, but it may not fit the question: use it when it does."
 )
 # Plain names for fields, so the model never quotes an internal label.
@@ -33,7 +36,10 @@ LABELS = {"batter_value_after_runs": "hitter's run value after this pitch", "bat
           "called_strike_chance_if_taken": "chance it's called a strike if taken", "whiff_chance_if_swung_at": "chance he misses if he swings",
           "swing_chance": "chance he swings", "next_pitch_after": "next pitch after a", "zone_swing_rate": "swing rate at strikes",
           "chase_rate": "chase rate (swings at balls)", "strikes_lost": "strikes lost at the back of the plate",
-          "share_of_takes": "share of taken pitches", "by_pitch_type": "by pitch type", "mix_by_situation": "pitch mix",
+          "share_of_takes": "strikes lost as a share of all taken pitches", "pitchers_of": "pitchers of",
+          "league_by_situation": "league-wide, by count situation", "by_situation": "his rates by count situation",
+          "overall_swings": "his rates over all counts", "by_count": "his rates in each count",
+          "by_pitch_type": "by pitch type", "mix_by_situation": "pitch mix",
           "hb_cm": "horizontal break cm", "ivb_cm": "vertical break cm", "avg_kmh": "average km/h", "max_kmh": "top km/h",
           "gain_from_taking_runs": "run value gained by taking", "p_called_strike": "chance it's called a strike",
           "in_zone_rate": "share of pitches in the zone", "others_higher": "qualified others higher",
@@ -112,6 +118,16 @@ def style_problems(reply: str) -> List[str]:
     return bad
 
 
+def stance_problems(reply: str, fact_text: str) -> List[str]:
+    """Advice that contradicts the take guide's own verdict."""
+    plain = reply.replace("*", "")
+    if "swing at strikes, take balls" in fact_text and re.search(r"\b(?:should|to|always) take (?:the|it|first|every|all)\b", plain, re.I):
+        return ["advice to take every pitch, when the verdict is to swing at strikes and take balls"]
+    if "be patient" in fact_text and re.search(r"\bswing at (?:everything|most|anything)", plain, re.I):
+        return ["advice to swing at most pitches, when the verdict is to be patient"]
+    return []
+
+
 def problems(reply: str, fact_text: str, question: str) -> List[str]:
     """What in the reply isn't in the facts or the question: numbers, player names, pitch-location words; and
     players the question names that the reply leaves out."""
@@ -123,7 +139,8 @@ def problems(reply: str, fact_text: str, question: str) -> List[str]:
     seen = fact_text + " " + question
     bad += [f"the name {n}" for n in set(_NAME.findall(reply)) if n not in seen]
     bad += [f'the location "{w}"' for w in set(_PLACE.findall(reply.replace("\u2011", "-"))) if w not in seen]
-    return bad + [f"nothing about {n}, whom the question names" for n in left_out] + style_problems(reply)
+    return (bad + [f"nothing about {n}, whom the question names" for n in left_out] + style_problems(reply)
+            + stance_problems(reply, fact_text))
 
 
 def _ask(chat: Chat, question: str, draft: str, fact_text: str, fix: str = "") -> str:

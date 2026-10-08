@@ -159,3 +159,13 @@ def test_pitch_level_questions(tools):
 def test_ranking_follows_the_stat_asked(tools):
     wrong = ran(tools, "leaderboard", metric="zone_swing_rate", who="team_batting")
     assert "chase rate among teams" in answer("Which team swings at the most pitches out of the zone?", [wrong], tools)
+
+
+def test_team_questions_rank_the_side_they_name(tools):
+    pitching = ran(tools, "leaderboard", metric="strikeout_rate", who="team_pitching")
+    text = answer("Which team's hitters strike out the most?", [pitching], tools)
+    assert "among teams" in text and "strikeout rate" in text
+    from abs_assist import fallback
+    calls = [pitching]
+    fallback.lookup("Which team's hitters strike out the most?", tools, calls)
+    assert calls[-1]["args"]["who"] == "team_batting"

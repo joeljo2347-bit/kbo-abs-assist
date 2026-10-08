@@ -114,7 +114,8 @@ class Toolbox:
                 "how_to_read": "probabilities: the chance (0-1) of each pitch type next, most likely first.",
                 "probabilities": {k: round(v, 3) for k, v in self.predictor.predict(
                     pitcher, int(balls), int(strikes), previous_pitch, batter_side).items()}},
-            "strikes_lost_at_back": lambda team="": lost_at_back(rows(self.db, pitcher_team=team or None)),
+            "strikes_lost_at_back": lambda team="": {"pitchers_of": team or "every team",
+                                                     **lost_at_back(rows(self.db, pitcher_team=team or None))},
         }
 
     def pitcher_profile(self, pitcher: str) -> Dict[str, Any]:
@@ -133,7 +134,9 @@ class Toolbox:
         line = self.league.qualified("batter").get(batter, {})
         stats = {k: line.get(k) for k in ("batting_average", "on_base_percentage", "slugging", "hits", "home_runs",
                                           "strikeouts", "walks")}
+        league = self.league.cached("league_counts", lambda: batter_counts(rows(self.db))["by_situation"])
         return out if "error" in out else {**out, **stats, **batter_counts(rows(self.db, batter=batter)),
+                                           "league_by_situation": league,
                                            "compared_with_league": context(self.league, "batter", batter, BATTER_METRICS)}
 
     def abs_rules(self, batter_height_cm: Any = None) -> Dict[str, Any]:
