@@ -316,7 +316,7 @@ def run() -> None:
             "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions,
             "heldout9": heldout9_questions, "heldout10": heldout10_questions, "heldout11": heldout11_questions,
             "heldout12": heldout12_questions, "heldout13": heldout13_questions,
-            **{f"set{n}": independent(f"set{n}") for n in (14, 15, 16, 17)}}[SET]
+            **{f"set{n}": independent(f"set{n}") for n in range(14, 21)}}[SET]
     for q in pick(tb):
         try:
             r = coach.ask(q)
