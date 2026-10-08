@@ -196,7 +196,7 @@ def coach(body: Question, request: Request) -> Dict[str, Any]:
     conversation_id, convo = _conversation(request, body.conversation_id)
     try:
         with convo.lock:  # one question at a time per conversation
-            out = Coach(_tools(request), request.app.state.chat, _locked(request)).ask(body.question, convo)
+            out = Coach(_tools(request), request.app.state.chat, _locked(request), request.app.state.writer).ask(body.question, convo)
     except (urllib.error.URLError, OSError) as exc:
         raise HTTPException(503, f"The AI coach needs a model server (see README): {exc}") from None
     except (KeyError, IndexError, TypeError, ValueError, AttributeError) as exc:
@@ -209,6 +209,7 @@ def create_app(db: Optional[sqlite3.Connection] = None, chat=None) -> FastAPI:
     app = FastAPI(title="KBO ABS Assist", version="1.0")
     db = db or build_store(Path(os.environ.get("ABS_DB", "data/abs.db")))
     app.state.tools, app.state.chat, app.state.lock = Toolbox(db), chat or http_chat(), threading.Lock()
+    app.state.writer = chat is None and os.environ.get("COACH_WRITER", "model") == "model"  # tests script the model
     app.state.conversations, app.state.conversations_lock = OrderedDict(), threading.Lock()
     app.include_router(router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

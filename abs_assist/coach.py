@@ -18,7 +18,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from abs_assist import compose, visuals
+from abs_assist import compose, visuals, writer
 from abs_assist.tools import SCHEMA, Toolbox
 
 MAX_ROUNDS, KEEP_MESSAGES = 10, 40
@@ -109,9 +109,10 @@ def _arguments(raw: Any) -> Tuple[Dict[str, Any], Optional[str]]:
 
 
 class Coach:
-    def __init__(self, tools: Toolbox, chat: Chat, lock: Any = None):
-        """`lock` guards the database during tool calls, not while waiting on the model."""
-        self.tools, self.chat, self.lock = tools, chat, lock or nullcontext()
+    def __init__(self, tools: Toolbox, chat: Chat, lock: Any = None, writer: bool = False):
+        """`lock` guards the database during tool calls, not while waiting on the model. `writer`: the model writes the
+        reply from facts code lays out, checked in code (abs_assist/writer.py); off, the code's own answer is shown."""
+        self.tools, self.chat, self.lock, self.writer = tools, chat, lock or nullcontext(), writer
 
     def _run_tools(self, tool_calls: List[Dict[str, Any]], convo: Conversation, calls: List[Dict[str, Any]]) -> None:
         """Call each requested tool and record the call and its result in the conversation."""
@@ -165,6 +166,8 @@ class Coach:
                     raise
                 break  # the model server choked on this turn (e.g. a malformed tool call): answer from what code can look up
         final = compose.answer(question, calls, self.tools, convo.last_calls)
+        if self.writer:
+            final = writer.write(self.chat, question, final, calls or convo.last_calls)
         if convo.messages[-1]["role"] == "assistant" and not convo.messages[-1].get("tool_calls"):
             convo.messages[-1]["content"] = final  # later turns see what the coach was actually told
         else:

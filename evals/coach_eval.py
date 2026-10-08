@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -310,7 +311,7 @@ def independent(name: str) -> Callable[[Toolbox], List[str]]:
 
 def run() -> None:
     tb = Toolbox(build_store(Path("data/abs.db")))
-    coach, out = Coach(tb, http_chat()), []
+    coach, out = Coach(tb, http_chat(), writer=os.environ.get("COACH_WRITER", "model") == "model"), []
     pick = {"dev": questions, "heldout": heldout_questions, "heldout2": heldout2_questions, "heldout3": heldout3_questions,
             "heldout4": heldout4_questions, "heldout5": heldout5_questions,
             "heldout6": heldout6_questions, "heldout7": heldout7_questions, "heldout8": heldout8_questions,

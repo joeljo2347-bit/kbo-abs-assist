@@ -171,14 +171,19 @@ def pitch_choice(r: Result, question: str) -> str:
     return f"{name}'s main pitch is the {main['pitch']}: {pct(main['usage'])} of his pitches, {main['avg_kmh']} km/h on average. Then: {rest}."
 
 
+def _movement(a: Result) -> str:
+    return f", {a['hb_cm']} cm horizontal and {a['ivb_cm']} cm vertical break" if a.get("hb_cm") is not None else ""
+
+
 def _pitch_detail(name: str, pitches: List[Result], question: str) -> str:
     """Every pitch's speed and whiff rate when asked for each pitch; one pitch's numbers when the question names it."""
-    if re.search(r"each pitch|every pitch|all (?:his|of his) pitches|velo(?:city)? (?:on|of|for) (?:each|every|all)|speeds", question, re.I):
+    if re.search(r"each pitch|every pitch|all (?:his|of his) pitches|velo(?:city)? (?:on|of|for) (?:each|every|all)|speeds|movement"
+                 r"|break(?:s)? down (?:his|\w+'?s) (?:pitches|arsenal)", question, re.I):
         used = [a for a in pitches if a["whiff_rate"] is not None and (a["usage"] or 0) >= 0.02]
         best = max(used, key=lambda a: a["whiff_rate"]) if used else None
         misses = f" The one that misses the most bats is the {best['pitch']} ({pct(best['whiff_rate'])})." if best else ""
         return f"{name}'s pitches: " + "; ".join(f"{a['pitch']} {a['avg_kmh']} km/h ({pct(a['usage'])} of pitches, "
-                                                f"{pct(a['whiff_rate'])} whiffs)" for a in pitches) + "." + misses
+                                                f"{pct(a['whiff_rate'])} whiffs{_movement(a)})" for a in pitches) + "." + misses
     named = [a for a in pitches if re.search(rf"\b{a['pitch']}s?\b", question, re.I)]
     if named and not fallback.AFTER.search(question):
         return " ".join(f"{name}'s {a['pitch']}: {pct(a['usage'])} of his pitches, {a['avg_kmh']} km/h, "
