@@ -172,17 +172,23 @@ figure in every answer comes from a tool.
 **Current design: code gathers the facts, the model writes the reply, code checks it** (`abs_assist/writer.py`).
 Developed on sets 14-17 (now seen, so not a test), then measured on sealed independent questions run once:
 
-| Independent set | 14 | 15 | 16 | 17 | 18 (sealed) | 19 (sealed) | 20 (sealed) | 21 (sealed) | 22 (sealed) |
-|---|---|---|---|---|---|---|---|---|---|
-| First run | [9](evals/set14-hybrid/results.md) | [8](evals/set15-hybrid/results.md) | [6](evals/set16-hybrid/results.md) | [5](evals/set17-hybrid/results.md) | [4](evals/set18-first-run/results.md) | [4](evals/set19-first-run/results.md) | [7](evals/set20-first-run/results.md) | [**7**](evals/set21/results.md) | [**5**](evals/set22/results.md) |
-| After a bug fix found while reading 18-20 | | | | | [4](evals/set18/results.md) | [4](evals/set19/results.md) | [9](evals/set20/results.md) | | |
+| Independent set | 14 | 15 | 16 | 17 | 18 (sealed) | 19 (sealed) | 20 (sealed) | 21 (sealed) | 22 (sealed) | 23 (sealed) | 24 (sealed) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| First run | [9](evals/set14-hybrid/results.md) | [8](evals/set15-hybrid/results.md) | [6](evals/set16-hybrid/results.md) | [5](evals/set17-hybrid/results.md) | [4](evals/set18-first-run/results.md) | [4](evals/set19-first-run/results.md) | [7](evals/set20-first-run/results.md) | [**7**](evals/set21/results.md) | [**5**](evals/set22/results.md) | [**3**](evals/set23/results.md) | [**5**](evals/set24/results.md) |
+| After a bug fix found while reading 18-20 | | | | | [4](evals/set18/results.md) | [4](evals/set19/results.md) | [9](evals/set20/results.md) | | | | |
 
 The bug: the English check rejected typographic spaces and dashes, so 17 of 30 good replies on 18-20 fell back to
-the code draft. Sets 21-22 were sealed before that fix was known and run once after it, so **12 of 20** on them is
-the clean measure: about 6 in 10 on questions phrased by someone else and never seen, up from about 3 in 10.
-The remaining misses are a count read as the wrong thing (pitches seen called swings or plate appearances), a
-summary that contradicts its own numbers ("more sinkers to lefties" when the split says fewer), an overstated rank,
-and a part of the question (pitch movement, a trend) neither answered nor said to be missing.
+the code draft. Sets 21-22 were sealed before that fix was known and run once after it (12 of 20). The misses there
+led to more checks (ranks spelled out, a pitch count never called swings or plate appearances, a left/right split
+read the right way round, movement looked up when asked), and sets 23-24 were then written by a fresh writer,
+sealed, and run once: 8 of 20. Across all four clean sets that is **20 of 40: about 5 in 10** on questions phrased
+by someone else and never seen, up from about 3 in 10 for the code-written answers. Set-to-set swing is large
+(3 to 7 of 10), so ten questions say little on their own.
+
+The remaining misses: one player's numbers given as another's; a part of the question (injuries, a head-to-head,
+a pitch the pitcher doesn't throw) neither answered nor said to be missing; a field misread (strikes lost at the back
+edge read as strikes gained on the edge); and a narrower split given in place of the one asked (all two-strike
+counts for 0-2). The checks catch invented numbers, names and locations, not numbers moved between players.
 
 All fourteen sets (the original ten questions and held-out sets 1-13) rerun and regraded on the second
 (code-written) design pass **132 of 140** ([original](evals/blind/results.md), [1](evals/heldout/results.md) ...
